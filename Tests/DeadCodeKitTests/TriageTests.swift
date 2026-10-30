@@ -45,6 +45,10 @@ struct TriageTests {
     /// Kept for tests.
     func makeStoreForTesting() {}
 
+    func onActor(isolation: isolated (any Actor)?, _ work: () -> Void) {
+      work()
+    }
+
     let observer = NotificationCenter.default.addObserver(
       forName: nil, object: nil, queue: nil
     ) { _ in
@@ -86,11 +90,12 @@ struct TriageTests {
       Self.finding(35, 8, "enumelement", "legacyName"),
     ]
     let production = all + [Self.finding(39, 6, "function.free", "makeStoreForTesting()")]
+    let isolation = Self.finding(41, 14, "var.parameter", "isolation")
 
     // when
     let report = TriageReport(
-      all: all.shuffled(),
-      production: production,
+      all: (all + [isolation]).shuffled(),
+      production: production + [isolation],
       model: try project.load(),
       configuration: Configuration(),
       sourceRoot: project.root
@@ -118,13 +123,17 @@ struct TriageTests {
       ),
       ("35:8 | enumelement | `legacyName`", "CodingKeys case: synthesized Codable uses it"),
       ("39:6 | function.free | `makeStoreForTesting()`", "named or documented as a test seam"),
+      (
+        "41:14 | var.parameter | `isolation`",
+        "isolated parameter: it runs the function on that actor, a use by effect"
+      ),
     ]
     for (declaration, notes) in expectedRows {
       let row = "| Sources/App/Main.swift:\(declaration) | \(notes) |"
       #expect(report.contains(row), "missing: \(row)")
     }
     #expect(report.contains("exposed to Objective-C: check selectors"))
-    #expect(report.contains("Unused declarations: 9. Test-only production declarations: 1."))
+    #expect(report.contains("Unused declarations: 10. Test-only production declarations: 1."))
   }
 
   @Test

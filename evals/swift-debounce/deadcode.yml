@@ -1,0 +1,7 @@
+# A library: its public API is the contract with clients, so public declarations nothing in
+# the package uses are not dead.
+project:
+  kind: swiftpm
+
+periphery:
+  arguments: [--retain-public]

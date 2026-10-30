@@ -1,0 +1,14 @@
+# NetNewsWire: one xcodeproj for an iOS and a macOS app, with extensions, synchronized folders,
+# xcconfig chains and 17 local packages in Modules/. Code in Shared/ serves both apps, so both
+# are built and scanned together: a declaration either app uses stays.
+project:
+  kind: xcode
+  path: NetNewsWire.xcodeproj
+
+builds:
+  - name: ios
+    schemes: [NetNewsWire-iOS]
+    destination: "generic/platform=iOS Simulator"
+  - name: mac
+    schemes: [NetNewsWire]
+    destination: "generic/platform=macOS"

@@ -83,7 +83,9 @@ swift package --disable-sandbox dead-code check
    ```
 
    Delete what is dead. Keep the rest in the allowlist, each entry with a reason; an entry that
-   no longer matches a finding fails the gate, so the list cannot go stale.
+   no longer matches a finding fails the gate, so the list cannot go stale. For a library
+   whose public API others use, add `--retain-public` to `periphery.arguments`, so `scan`
+   treats public declarations as the contract they are.
 
 3. Add the gate to your lint script or CI. It needs no build and exits non-zero on a new
    finding, with compiler-style `path:line:col: error:` lines:

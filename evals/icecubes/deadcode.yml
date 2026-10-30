@@ -1,0 +1,7 @@
+# IceCubes: an xcodeproj with extensions in synchronized folders and local packages added as
+# folder references. IceCubesApp.xcconfig comes from IceCubesApp.xcconfig.template (README).
+project:
+  kind: xcode
+  path: IceCubesApp.xcodeproj
+  schemes: [IceCubesApp]
+  destination: "generic/platform=iOS Simulator"

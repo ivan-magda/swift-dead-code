@@ -46,6 +46,9 @@ struct TriageNotes {
     if finding.kind == "var.parameter", context?.isParameterizedTest == true {
       notes.append("argument of a parameterized @Test")
     }
+    if finding.kind == "var.parameter", context?.typeText.hasPrefix("isolated ") == true {
+      notes.append("isolated parameter: it runs the function on that actor, a use by effect")
+    }
     if let context, let type = context.enclosingTypes.first {
       notes += enclosingTypeNotes(finding, type: type)
     }

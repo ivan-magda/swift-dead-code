@@ -1,0 +1,8 @@
+# An executable package: `cli` runs the `Core` library, which no one else consumes, so its
+# public declarations are scanned like any other.
+project:
+  kind: swiftpm
+
+allowlist:
+  - file: docs/s0*.md
+    reason: sources of the guide series published on ivanmagda.dev; the README links the site

@@ -56,6 +56,12 @@ public struct StarterConfiguration: Sendable {
       "  version: \(PeripherySettings().version)",
       "  baseline: \(PeripherySettings().baseline)",
     ]
+    if model.kind == .swiftPackage, model.targets.contains(where: { $0.productType == .library }) {
+      lines += [
+        "  # A library whose public API others use: public declarations count as used.",
+        "  # arguments: [--retain-public]",
+      ]
+    }
     let documents = Self.contractDocuments.filter { path in
       FileManager.default.fileExists(atPath: model.root.appendingPathComponent(path).path)
     }

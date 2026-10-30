@@ -1,0 +1,8 @@
+# Stepik: a CocoaPods workspace with a development pod (StepikModel), legacy UIKit,
+# storyboards and @objc. The project has no plain Debug configuration.
+project:
+  kind: xcode
+  path: Stepic.xcworkspace
+  schemes: [Stepic Develop]
+  configuration: Develop Debug
+  destination: "generic/platform=iOS Simulator"
