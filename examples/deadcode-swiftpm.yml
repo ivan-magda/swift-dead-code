@@ -1,0 +1,15 @@
+# A SwiftPM package with a shared test-helper target.
+project:
+  kind: swiftpm
+
+test_support: [MyLibraryTestSupport]
+
+allowlist:
+  - file: docs/assets/logo.png
+    reason: referenced by the project website
+
+periphery:
+  baseline: .deadcode/periphery-baseline.txt
+
+docs:
+  contracts: [README.md]

@@ -1,0 +1,11 @@
+# A CocoaPods workspace. Run `pod install` first: the tool reads Pods/Pods.xcodeproj for the
+# pods' module names (what `prune-imports --modules deps` tries) and treats development pods
+# (`pod 'Name', :path => '...'`) as project code.
+project:
+  kind: xcode
+  path: MyApp.xcworkspace
+  schemes: [MyApp]
+  # Each scheme builds with its own configuration unless one is set here.
+  configuration: Production Debug
+
+test_support: [MyAppTestHelpers]

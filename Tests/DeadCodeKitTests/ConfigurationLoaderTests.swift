@@ -1,4 +1,5 @@
 import DeadCodeKit
+import Foundation
 import Testing
 
 @Suite
@@ -97,5 +98,21 @@ struct ConfigurationLoaderTests {
     // then
     #expect(error?.message.contains(message) == true, "\(error?.message ?? "")")
     #expect(error?.exitStatus == 2)
+  }
+}
+
+@Suite struct ExampleConfigurationTests {
+  static let examples = FixtureProject.fixtures
+    .deletingLastPathComponent()
+    .deletingLastPathComponent()
+    .appendingPathComponent("examples")
+
+  @Test(arguments: ["deadcode-swiftpm.yml", "deadcode-xcode.yml", "deadcode-cocoapods.yml"])
+  func examplesInTheREADMEParse(name: String) throws {
+    // when
+    let configuration = try ConfigurationLoader.load(root: Self.examples, path: name)
+
+    // then
+    #expect(configuration.sourcePath == name)
   }
 }

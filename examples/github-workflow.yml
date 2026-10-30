@@ -1,0 +1,140 @@
+# Weekly dead-code analysis for a project that uses swift-dead-code, modeled on swift-claw's
+# .github/workflows/dead-code.yml. Copy it to .github/workflows/dead-code.yml.
+#
+# The quick gate (`swift-dead-code check`) needs no build: run it in your lint job on every
+# pull request. Unused declarations and imports need an indexed build, too slow for every pull
+# request, so this runs weekly, on demand, and when the analysis configuration changes.
+name: Dead code
+
+on:
+  schedule:
+    - cron: "41 3 * * 1"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .deadcode.yml
+      - .deadcode/**
+      - .github/workflows/dead-code.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dead-code-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PERIPHERY_VERSION: 3.8.0
+  # Pin a release of swift-dead-code and its checksum once one is published.
+  SWIFT_DEAD_CODE_REF: main
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  periphery:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install pinned Periphery
+        run: |
+          archive="$RUNNER_TEMP/periphery.zip"
+          curl --fail --location --silent --show-error \
+            "https://github.com/peripheryapp/periphery/releases/download/${PERIPHERY_VERSION}/periphery-${PERIPHERY_VERSION}.zip" \
+            --output "$archive"
+          # Verify the archive: swift-claw pins 07d4e286e31dd79164df39097e0b59f533c94badbe18158464a455ea88a166d7.
+          printf '%s  %s\n' "07d4e286e31dd79164df39097e0b59f533c94badbe18158464a455ea88a166d7" "$archive" \
+            | shasum -a 256 --check
+          unzip -q "$archive" -d "$RUNNER_TEMP/periphery"
+          printf '%s\n' "$RUNNER_TEMP/periphery" >> "$GITHUB_PATH"
+
+      - name: Build swift-dead-code
+        run: |
+          git clone --depth 1 --branch "$SWIFT_DEAD_CODE_REF" \
+            https://github.com/ivan-magda/swift-dead-code "$RUNNER_TEMP/swift-dead-code"
+          swift build -c release --package-path "$RUNNER_TEMP/swift-dead-code"
+          printf '%s\n' "$RUNNER_TEMP/swift-dead-code/.build/release" >> "$GITHUB_PATH"
+
+      - name: Scan with and without tests
+        run: swift-dead-code scan --output "$RUNNER_TEMP/scan"
+
+      - name: Fail on findings missing from the baseline
+        run: |
+          scan="$RUNNER_TEMP/scan"
+          status=0
+          swift-dead-code baseline "$scan/all.json" "$scan/prod.json" \
+            > "$scan/baseline.txt" 2>&1 || status=$?
+          cat "$scan/baseline.txt"
+          {
+            echo '### Periphery findings missing from the baseline'
+            echo '```'
+            cat "$scan/baseline.txt"
+            echo '```'
+            echo 'The triage report is in the periphery artifact.'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      - name: Upload the triage report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: periphery
+          path: |
+            ${{ runner.temp }}/scan/*.md
+            ${{ runner.temp }}/scan/*.json
+            ${{ runner.temp }}/scan/*.txt
+            ${{ runner.temp }}/scan/*.log
+            ${{ runner.temp }}/scan/*.err
+
+  imports:
+    runs-on: macos-15
+    timeout-minutes: 300
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Build swift-dead-code
+        run: |
+          git clone --depth 1 --branch "$SWIFT_DEAD_CODE_REF" \
+            https://github.com/ivan-magda/swift-dead-code "$RUNNER_TEMP/swift-dead-code"
+          swift build -c release --package-path "$RUNNER_TEMP/swift-dead-code"
+          printf '%s\n' "$RUNNER_TEMP/swift-dead-code/.build/release" >> "$GITHUB_PATH"
+
+      # Periphery never reports imports of package dependencies, pods, Testing or
+      # Synchronization. Product code comes first; test code is left to an explicit
+      # --include-tests run.
+      - name: Try removing every dependency import from product code
+        run: |
+          work="$RUNNER_TEMP/prune"
+          mkdir -p "$work"
+          swift-dead-code prune-imports --work "$work" --all --modules deps --strict \
+            | tee "$work/result.txt"
+          status=${PIPESTATUS[0]}
+          {
+            echo '### Removable dependency imports in product code'
+            echo '```'
+            cat "$work/result.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$status" -ne 0 ]]; then
+            echo "::error::Remove these imports: apply prune.patch from the imports artifact."
+          fi
+          exit "$status"
+
+      - name: Upload the patch and build logs
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: imports
+          path: |
+            ${{ runner.temp }}/prune/prune.patch
+            ${{ runner.temp }}/prune/result.txt
+            ${{ runner.temp }}/prune/*.log
