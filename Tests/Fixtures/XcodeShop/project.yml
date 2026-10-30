@@ -1,0 +1,54 @@
+# Regenerate with `xcodegen generate` after editing; the generated project is committed.
+name: Shop
+options:
+  bundleIdPrefix: dev.deadcode.fixture
+  deploymentTarget:
+    iOS: "17.0"
+packages:
+  Feature:
+    path: Packages/Feature
+targets:
+  Shop:
+    type: application
+    platform: iOS
+    sources:
+      - path: Shop
+    dependencies:
+      - target: ShopKit
+      - target: Spare
+      - target: ShopWidget
+      - package: Feature
+    info:
+      path: Shop/Info.plist
+      properties:
+        UILaunchScreen: {}
+  ShopKit:
+    type: framework
+    platform: iOS
+    sources: [ShopKit]
+    configFiles:
+      Debug: Config/ShopKit.xcconfig
+      Release: Config/ShopKit.xcconfig
+  Spare:
+    type: framework
+    platform: iOS
+    sources: [Spare]
+  ShopWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widget
+        type: syncedFolder
+    dependencies:
+      - target: ShopKit
+    info:
+      path: Widget/Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+  ShopTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [ShopTests]
+    dependencies:
+      - target: Shop

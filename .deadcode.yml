@@ -1,0 +1,15 @@
+# swift-dead-code checks itself.
+project:
+  kind: swiftpm
+
+# Fixture projects plant dead code on purpose.
+exclude: ["Tests/Fixtures/**"]
+
+check:
+  not_references: ["Tests/Fixtures/"]
+
+periphery:
+  baseline: BuildTools/periphery-baseline.txt
+
+docs:
+  contracts: [docs/DESIGN.md]

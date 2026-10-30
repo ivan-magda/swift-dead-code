@@ -1,0 +1,135 @@
+# Modeled on swift-claw's .swiftlint.yml: Apple swift-format owns layout, SwiftLint owns
+# correctness, idiom, complexity and the hard line-length limit (docs/CODE_STYLE.md).
+
+included:
+  - Sources
+  - Tests
+  - Plugins
+  - Package.swift
+excluded:
+  - .build
+  - Tests/Fixtures
+
+disabled_rules:
+  # Layout belongs to Apple swift-format and the targeted final pass.
+  - attribute_name_spacing
+  - closing_brace
+  - closure_parameter_position
+  - colon
+  - comma
+  - comment_spacing
+  - control_statement
+  - empty_parentheses_with_trailing_closure
+  - function_name_whitespace
+  - leading_whitespace
+  - no_space_in_method_call
+  - opening_brace
+  - return_arrow_whitespace
+  - sorted_imports
+  - statement_position
+  - switch_case_alignment
+  - trailing_comma
+  - trailing_newline
+  - trailing_semicolon
+  - trailing_whitespace
+  - vertical_parameter_alignment
+  - vertical_whitespace
+  # These semantic rewrites are already owned by Apple swift-format.
+  - duplicate_imports
+  - no_fallthrough_only
+  - private_over_fileprivate
+  - redundant_void_return
+  - syntactic_sugar
+  - unneeded_synthesized_initializer
+  - void_return
+  - superfluous_disable_command
+
+opt_in_rules:
+  # Safety
+  - force_unwrapping
+  - implicitly_unwrapped_optional
+  - unowned_variable_capture
+  - unhandled_throwing_task
+  - discouraged_optional_boolean
+  - discouraged_optional_collection
+  # Modern Swift idioms
+  - contains_over_filter_count
+  - contains_over_filter_is_empty
+  - contains_over_first_not_nil
+  - first_where
+  - last_where
+  - sorted_first_last
+  - flatmap_over_map_reduce
+  - reduce_into
+  - empty_count
+  - empty_string
+  - toggle_bool
+  - convenience_type
+  - prefer_zero_over_explicit_init
+  - prefer_self_type_over_type_of_self
+  - shorthand_optional_binding
+  - direct_return
+  # Readability
+  - closure_body_length
+  - modifier_order
+  - superfluous_else
+  - redundant_nil_coalescing
+  - fatal_error_message
+  - yoda_condition
+
+force_cast: error
+force_try: error
+force_unwrapping: error
+
+line_length:
+  warning: 100
+  error: 100
+  ignores_urls: true
+  ignores_comments: true
+  ignores_interpolated_strings: false
+  ignores_multiline_strings: false
+
+identifier_name:
+  excluded: [id, db, ts, ok, sh]
+
+type_name:
+  min_length: 3
+  max_length:
+    warning: 45
+    error: 60
+
+closure_body_length:
+  warning: 80
+
+function_body_length:
+  warning: 60
+  error: 120
+
+type_body_length:
+  warning: 300
+  error: 450
+
+file_length:
+  warning: 600
+  error: 1000
+  ignore_comment_only_lines: true
+
+cyclomatic_complexity:
+  warning: 12
+  error: 20
+
+nesting:
+  type_level:
+    warning: 2
+  function_level:
+    warning: 3
+
+custom_rules:
+  no_print_in_library:
+    name: "No print() in the library"
+    regex: '(?<!\/\/)(\bprint\()'
+    match_kinds:
+      - identifier
+    message: "DeadCodeKit returns text; only the command line writes to the terminal"
+    severity: warning
+    included: "Sources/DeadCodeKit/.*"
