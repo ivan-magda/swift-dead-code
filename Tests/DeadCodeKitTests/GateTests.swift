@@ -86,6 +86,29 @@ struct GateTests {
   }
 
   @Test
+  func wildcardsAndVariantSuffixesCountAsMentions() throws {
+    // given: DocC finds `~dark` variants by name, and a README may name files by pattern.
+    let project = try FixtureProject.copy("GatePackage")
+    defer {
+      project.remove()
+    }
+    try project.write("dark", to: "docs/architecture-diagram~dark.png")
+    try project.write("run", to: "docs/results/run-2026-10-30.md")
+    try project.write("Results are in docs/results/run-*.md.\n", to: "CONTRIBUTING.md")
+    _ = try project.git(["add", "--all"])
+
+    // when
+    let findings = try Gate(model: try project.load(), configuration: Configuration()).findings()
+
+    // then
+    let variant = GateFinding(kind: .file, subject: "docs/architecture-diagram~dark.png")
+    let matched = GateFinding(kind: .file, subject: "docs/results/run-2026-10-30.md")
+    #expect(!findings.contains(variant))
+    #expect(!findings.contains(matched))
+    #expect(findings.contains(GateFinding(kind: .file, subject: "docs/orphan-note.txt")))
+  }
+
+  @Test
   func sameInputGivesTheSameReportAndJSON() throws {
     // given
     let project = try FixtureProject.copy("GatePackage")

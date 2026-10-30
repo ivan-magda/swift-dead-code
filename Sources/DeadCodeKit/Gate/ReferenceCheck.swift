@@ -94,15 +94,67 @@ private extension ReferenceCheck {
         && !(Self.isSource(path) && nestedProjects.contains { path.hasPrefix($0 + "/") })
     }
     let terms = candidates.map(searchTerm)
-    let mentioned = mentionedTerms(
+    var mentioned = mentionedTerms(
       terms,
       owners: candidates.map { [$0] },
       sources: sources
     )
+    let patterns = Self.wildcardMentions(in: sources)
+    for index in candidates.indices where !mentioned.contains(index) {
+      if patterns.contains(where: { $0.matches(candidates[index]) }) {
+        mentioned.insert(index)
+      }
+    }
     return Set(
       candidates.indices.filter { !mentioned.contains($0) }
         .map { GateFinding(kind: .file, subject: candidates[$0]) }
     )
+  }
+
+  /// A file pattern a text names, such as `results/prototype-*.md`: it mentions every file
+  /// it matches, by name, or by the end of the path when the pattern has directories.
+  struct WildcardMention {
+    var pattern: Glob
+    var hasDirectories: Bool
+
+    func matches(_ path: String) -> Bool {
+      guard hasDirectories else {
+        return pattern.matches((path as NSString).lastPathComponent)
+      }
+      let components = path.split(separator: "/")
+      return components.indices.contains { start in
+        pattern.matches(components[start...].joined(separator: "/"))
+      }
+    }
+  }
+
+  static let wildcardToken = try? NSRegularExpression(
+    pattern: #"[A-Za-z0-9_.\-/]*\*[A-Za-z0-9_.*\-/]*"#
+  )
+
+  /// The file patterns the sources name; a pattern needs four literal characters, so `*.md`
+  /// or `*` alone mentions nothing.
+  static func wildcardMentions(in sources: [MentionSource]) -> [WildcardMention] {
+    guard let expression = wildcardToken else {
+      return []
+    }
+    var patterns: Set<String> = []
+    for source in sources where source.text.contains("*") {
+      let text = source.text
+      for match in expression.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
+        guard let range = Range(match.range, in: text) else {
+          continue
+        }
+        let token = String(text[range]).trimmingCharacters(in: CharacterSet(charactersIn: "./"))
+        let literal = token.filter { $0 != "*" && $0 != "/" && $0 != "." }
+        if literal.count >= 4, token.contains(".") {
+          patterns.insert(token)
+        }
+      }
+    }
+    return patterns.sorted().map { pattern in
+      WildcardMention(pattern: Glob(pattern), hasDirectories: pattern.contains("/"))
+    }
   }
 
   /// Directories with their own package or project manifest, below the root: their sources
@@ -134,8 +186,20 @@ private extension ReferenceCheck {
   /// when the stem is too short to be specific.
   func searchTerm(_ path: String) -> String {
     let name = (path as NSString).lastPathComponent
-    let stem = String(name.split(separator: ".", omittingEmptySubsequences: false).first ?? "")
+    let stem = Self.withoutVariantSuffixes(
+      String(name.split(separator: ".", omittingEmptySubsequences: false).first ?? "")
+    )
     return stem.count >= configuration.check.minimumStemLength ? stem : name
+  }
+
+  /// `icon@2x~ipad` and `diagram~dark` are variants that code and docs name by their base:
+  /// UIKit picks the scale and device, DocC the appearance.
+  static func withoutVariantSuffixes(_ stem: String) -> String {
+    stem.replacingOccurrences(
+      of: #"(?:@[0-9]x|~[A-Za-z]+)+$"#,
+      with: "",
+      options: .regularExpression
+    )
   }
 
   /// The indices of the candidates whose terms some source mentions, other than the
