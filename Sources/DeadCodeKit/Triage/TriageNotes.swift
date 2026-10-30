@@ -12,10 +12,19 @@ struct TriageNotes {
     "AppEntity", "AppEnum", "AppIntent", "AppIntentTimelineProvider", "AppShortcutsProvider",
     "ControlWidget", "EntityQuery", "EntityStringQuery", "IntentTimelineProvider",
     "LiveActivityIntent", "TimelineProvider", "Widget", "WidgetBundle",
+    "WidgetConfigurationIntent", "ControlConfigurationIntent", "SetValueIntent", "OpenIntent",
+    "AudioPlaybackIntent", "ForegroundContinuableIntent", "DynamicOptionsProvider",
+    "EntityPropertyQuery",
   ]
   static let projectedWrappers: Set<String> = [
     "AppStorage", "Bindable", "Binding", "Environment", "EnvironmentObject", "FocusState",
     "GestureState", "ObservedObject", "Published", "SceneStorage", "State", "StateObject",
+  ]
+  /// SwiftUI installs these even when nothing reads them.
+  static let dynamicProperties: Set<String> = [
+    "AccessibilityFocusState", "AppStorage", "Bindable", "Environment", "EnvironmentObject",
+    "FocusState", "FocusedObject", "FocusedValue", "GestureState", "Namespace", "ObservedObject",
+    "Query", "ScaledMetric", "SceneStorage", "State", "StateObject",
   ]
   static let interfaceBuilderAttributes: Set<String> = [
     "IBAction", "IBInspectable", "IBOutlet", "IBSegueAction",
@@ -180,6 +189,13 @@ private extension TriageNotes {
       sources.mentionsProjectedValue(finding.bareName, in: finding.path)
     {
       notes.append("read through its projected value $\(finding.bareName)")
+    } else if finding.kind.hasPrefix("var."),
+      let wrapper = attributes.intersection(Self.dynamicProperties).min()
+    {
+      notes.append(
+        "@\(wrapper) nothing reads: usually a leftover, unless a comment makes its declaration "
+          + "a workaround; check #if branches for platforms the scan did not build"
+      )
     }
     if finding.kind == "enumelement", context.enclosingTypes.first?.name == "CodingKeys" {
       notes.append("CodingKeys case: synthesized Codable uses it")

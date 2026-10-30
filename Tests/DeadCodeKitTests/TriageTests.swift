@@ -53,6 +53,14 @@ struct TriageTests {
       forName: nil, object: nil, queue: nil
     ) { _ in
     }
+
+    struct SettingsView: View {
+      @Environment(\\.dismiss) private var dismiss
+
+      var body: some View {
+        Text("Settings")
+      }
+    }
     """
 
   static func finding(
@@ -91,11 +99,12 @@ struct TriageTests {
     ]
     let production = all + [Self.finding(39, 6, "function.free", "makeStoreForTesting()")]
     let isolation = Self.finding(41, 14, "var.parameter", "isolation")
+    let dismiss = Self.finding(51, 39, "var.instance", "dismiss")
 
     // when
     let report = TriageReport(
-      all: (all + [isolation]).shuffled(),
-      production: production + [isolation],
+      all: (all + [isolation, dismiss]).shuffled(),
+      production: production + [isolation, dismiss],
       model: try project.load(),
       configuration: Configuration(),
       sourceRoot: project.root
@@ -127,13 +136,18 @@ struct TriageTests {
         "41:14 | var.parameter | `isolation`",
         "isolated parameter: it runs the function on that actor, a use by effect"
       ),
+      (
+        "51:39 | var.instance | `dismiss`",
+        "@Environment nothing reads: usually a leftover, unless a comment makes its declaration "
+          + "a workaround; check #if branches for platforms the scan did not build"
+      ),
     ]
     for (declaration, notes) in expectedRows {
       let row = "| Sources/App/Main.swift:\(declaration) | \(notes) |"
       #expect(report.contains(row), "missing: \(row)")
     }
     #expect(report.contains("exposed to Objective-C: check selectors"))
-    #expect(report.contains("Unused declarations: 10. Test-only production declarations: 1."))
+    #expect(report.contains("Unused declarations: 11. Test-only production declarations: 1."))
   }
 
   @Test

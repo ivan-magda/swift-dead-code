@@ -1,7 +1,14 @@
 # IceCubes: an xcodeproj with extensions in synchronized folders and local packages added as
 # folder references. IceCubesApp.xcconfig comes from IceCubesApp.xcconfig.template (README).
+# The app ships for iOS and visionOS, and 84 files branch on `#if os(visionOS)`: both are built
+# and scanned together, so a declaration either platform uses stays.
 project:
   kind: xcode
   path: IceCubesApp.xcodeproj
   schemes: [IceCubesApp]
-  destination: "generic/platform=iOS Simulator"
+
+builds:
+  - name: ios
+    destination: "generic/platform=iOS Simulator"
+  - name: visionos
+    destination: "generic/platform=visionOS Simulator"
