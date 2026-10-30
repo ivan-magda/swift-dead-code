@@ -388,7 +388,9 @@ private extension XcodeProjectAdapter {
     context: inout LoadContext
   ) throws {
     let podsDirectory = (projectPath as NSString).deletingLastPathComponent
-    for target in pbxproj.nativeTargets where !target.name.hasPrefix("Pods-") {
+    // `Pods-*` aggregates link the pods into an app; resource bundles are no modules.
+    for target in pbxproj.nativeTargets
+    where !target.name.hasPrefix("Pods-") && target.productType != .bundle {
       let settings = resolver.settings(of: target, project: pbxproj.rootObject)
       let moduleName = BuildSettingsResolver.moduleName(
         targetName: target.name,
