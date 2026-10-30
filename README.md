@@ -176,7 +176,9 @@ How the checks decide:
   used on one platform counts. `@_exported`, `@testable`, `@_spi`, access-level and scoped
   imports count, `#externalMacro(module:)` counts for macro targets, and Objective-C sources'
   `@import` and `#import <Module/...>` count. Xcode app extensions, apps and bundles are
-  embedded rather than imported, so they are not checked; neither are plugin targets.
+  embedded rather than imported, so they are not checked; neither are plugin targets. A
+  framework target that a string literal of the dependent target names counts too: that is
+  how an embedded, unlinked framework is loaded with `dlopen` or `NSClassFromString`.
 - **Files.** A tracked file is used when another tracked text file contains its stem (four
   characters or more), its whole name, or a pattern such as `results/run-*.md` that matches
   it. `@2x`, `~ipad` and `~dark` variants count by their base name. Project membership

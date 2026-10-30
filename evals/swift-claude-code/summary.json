@@ -1,0 +1,32 @@
+{
+  "check": {
+    "allowlisted": 9,
+    "findings": 9
+  },
+  "commit": "88ed290dff95789929a823603cc54cf7cc530da2",
+  "deletions_alive": 0,
+  "deletions_verified": 0,
+  "false_positives_flagged_by_triage": 2,
+  "kind": "swiftpm executable",
+  "note": "the TRUE finding is a file that borrows NIOHTTP1; its fix adds an import",
+  "prune": {
+    "borrowing_files": 1,
+    "candidates": 4,
+    "removable": 0
+  },
+  "scan": {
+    "findings": 2,
+    "redundant_public": 61
+  },
+  "seconds": {
+    "check_only": 61,
+    "prune": 129,
+    "scan": 109
+  },
+  "verdicts": {
+    "AMBIGUOUS": 0,
+    "FALSE": 2,
+    "KEEP": 9,
+    "TRUE": 1
+  }
+}

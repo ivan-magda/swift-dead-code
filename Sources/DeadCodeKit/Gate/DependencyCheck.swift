@@ -23,7 +23,9 @@ struct DependencyCheck {
         cache[path] = modules
         imported.formUnion(modules)
       }
-      for dependency in target.dependencies where dependency.moduleNames.isDisjoint(with: imported)
+      for dependency in target.dependencies
+      where dependency.moduleNames.isDisjoint(with: imported)
+        && !(dependency.kind == .target && namesInStrings(dependency, of: target))
       {
         findings.insert(
           GateFinding(kind: .dependency, subject: "\(target.name) \(dependency.name)")
@@ -37,6 +39,22 @@ struct DependencyCheck {
 // MARK: - Imports
 
 private extension DependencyCheck {
+  /// Whether a string literal in the target names the framework, as `dlopen` of an embedded,
+  /// unlinked framework and `NSClassFromString` do: then the dependency builds and embeds it.
+  func namesInStrings(_ dependency: TargetDependency, of target: ProjectTarget) -> Bool {
+    let names = dependency.moduleNames.union([dependency.name])
+    return target.sourceFiles.contains { path in
+      guard let text = TextFiles.read(model.root.appendingPathComponent(path)) else {
+        return false
+      }
+      return names.contains { name in
+        let escaped = NSRegularExpression.escapedPattern(for: name)
+        return text.range(of: #""[^"\n]*\b"# + escaped + #"\b"#, options: .regularExpression)
+          != nil
+      }
+    }
+  }
+
   static let objectiveCImport = try? NSRegularExpression(
     pattern: #"^\s*(?:@import\s+(\w+)|#(?:import|include)\s+<(\w+)/)"#,
     options: [.anchorsMatchLines]

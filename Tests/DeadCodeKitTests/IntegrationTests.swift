@@ -5,6 +5,9 @@ import Testing
 /// Subcommands that build: they run one at a time, as the tool itself requires.
 @Suite(.serialized)
 struct IntegrationTests {
+  /// The suite serializes its own builds; a real scan on the machine must not block it.
+  static let lockName = "swift-dead-code-tests-\(ProcessInfo.processInfo.processIdentifier).lock"
+
   @Test(.enabled(if: Tools.hasPeriphery), .timeLimit(.minutes(10)))
   func scanFindsPlantedDeadCodeWithoutTouchingTheProject() throws {
     // given
@@ -17,8 +20,12 @@ struct IntegrationTests {
     let before = try project.status()
 
     // when
-    let report = try ScanRunner(model: model, configuration: configuration)
-      .run(output: project.scratch, skipBuild: false) { _ in }
+    let report = try ScanRunner(
+      model: model,
+      configuration: configuration,
+      lockName: Self.lockName
+    )
+    .run(output: project.scratch, skipBuild: false) { _ in }
 
     // then
     let all = try PeripheryFinding.read(project.scratch.appendingPathComponent("all.json"))
@@ -37,7 +44,7 @@ struct IntegrationTests {
     #expect(try project.status() == before)
 
     // when: the same build is scanned again.
-    try ScanRunner(model: model, configuration: configuration)
+    try ScanRunner(model: model, configuration: configuration, lockName: Self.lockName)
       .run(output: project.scratch, skipBuild: true) { _ in }
 
     // then
@@ -55,6 +62,7 @@ struct IntegrationTests {
     let model = try project.load(configuration)
     var options = PruneOptions(work: project.scratch)
     options.all = true
+    options.lockName = Self.lockName
     var printed: [String] = []
     var progress: [String] = []
     let before = try project.status()
@@ -95,6 +103,7 @@ struct IntegrationTests {
     let configuration = Configuration()
     var options = PruneOptions(work: project.scratch)
     options.checkOnly = true
+    options.lockName = Self.lockName
     options.files = ["Sources/Lib/Borrower.swift", "Sources/Lib/Twin.swift"]
     var printed: [String] = []
 

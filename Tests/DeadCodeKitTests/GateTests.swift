@@ -108,6 +108,31 @@ struct GateTests {
     #expect(findings.contains(GateFinding(kind: .file, subject: "docs/orphan-note.txt")))
   }
 
+  @Test(.enabled(if: Tools.hasXcodeGen))
+  func frameworksLoadedByNameAndConventionalFilesAreNotFindings() throws {
+    // given: the app dlopens Spare instead of importing it; git hooks and licenses are found
+    // by convention.
+    let project = try FixtureProject.copy("XcodeShop")
+    defer {
+      project.remove()
+    }
+    let app = try #require(project.read("Shop/ShopApp.swift"))
+    let loader = "\nlet spare = dlopen(\"Frameworks/Spare.framework/Spare\", 0)\n"
+    try project.write(app + loader, to: "Shop/ShopApp.swift")
+    try project.write("#!/bin/sh\n", to: ".githooks/pre-commit")
+    try project.write("Commercial terms.\n", to: "LICENSE-COMMERCIAL")
+    _ = try project.git(["add", "--all"])
+
+    // when
+    let findings = try Gate(model: try project.load(), configuration: Configuration()).findings()
+
+    // then
+    #expect(!findings.contains(GateFinding(kind: .dependency, subject: "Shop Spare")))
+    #expect(!findings.contains(GateFinding(kind: .file, subject: ".githooks/pre-commit")))
+    #expect(!findings.contains(GateFinding(kind: .file, subject: "LICENSE-COMMERCIAL")))
+    #expect(findings.contains(GateFinding(kind: .file, subject: "docs/unused-mockup.png")))
+  }
+
   @Test
   func sameInputGivesTheSameReportAndJSON() throws {
     // given

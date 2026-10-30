@@ -1,0 +1,28 @@
+{
+  "check": {
+    "findings": 0
+  },
+  "commit": "2c6aa99c4f4a01b06a3287834970a2ce6bd24d91",
+  "deletions_alive": 0,
+  "deletions_verified": 2,
+  "false_positives_flagged_by_triage": 2,
+  "kind": "swiftpm library",
+  "prune": {
+    "candidates": 8,
+    "removable": 2
+  },
+  "scan": {
+    "findings": 2
+  },
+  "seconds": {
+    "check_only": 17,
+    "prune": 45,
+    "scan": 23
+  },
+  "verdicts": {
+    "AMBIGUOUS": 0,
+    "FALSE": 2,
+    "KEEP": 0,
+    "TRUE": 2
+  }
+}

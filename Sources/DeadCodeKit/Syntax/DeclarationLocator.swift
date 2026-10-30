@@ -40,10 +40,16 @@ public final class SourceIndex {
     var tree: SourceFileSyntax
     var converter: SourceLocationConverter
     var text: String
+    var lineCount: Int
   }
 
   private let root: URL
   private var files: [String: ParsedFile?] = [:]
+  // Built on first use per file: a report asks about thousands of declarations in a large
+  // project, so each question must not walk the whole file again.
+  private var identifierTokens: [String: [String: [TokenSyntax]]] = [:]
+  private var projectedNames: [String: Set<String>] = [:]
+  private var inheritanceByType: [String: [String: [String]]] = [:]
 
   public init(root: URL) {
     self.root = root
@@ -56,9 +62,7 @@ public final class SourceIndex {
 
   /// The number of lines in a file, or nil if it is gone.
   public func lineCount(of path: String) -> Int? {
-    parsed(path).map { file in
-      file.text.split(separator: "\n", omittingEmptySubsequences: false).count
-    }
+    parsed(path)?.lineCount
   }
 
   /// The declaration whose name sits at `line:column`, or nil when no declaration is there.
@@ -77,10 +81,7 @@ public final class SourceIndex {
       return []
     }
     var users: Set<String?> = []
-    for token in file.tree.tokens(viewMode: .sourceAccurate) {
-      guard case .identifier(let text) = token.tokenKind, text == name else {
-        continue
-      }
+    for token in identifiers(in: path, file: file)[name] ?? [] {
       let tokenLine = file.converter.location(for: token.positionAfterSkippingLeadingTrivia).line
       guard tokenLine != line else {
         continue
@@ -92,22 +93,17 @@ public final class SourceIndex {
 
   /// Whether the file names `$name`, the projected value of a property wrapper.
   public func mentionsProjectedValue(_ name: String, in path: String) -> Bool {
-    guard let file = parsed(path) else {
-      return false
+    if projectedNames[path] == nil, let file = parsed(path) {
+      projectedNames[path] = Set(
+        file.tree.tokens(viewMode: .sourceAccurate).map(\.text).filter { $0.hasPrefix("$") }
+      )
     }
-    return file.tree.tokens(viewMode: .sourceAccurate).contains { token in
-      token.text == "$" + name
-    }
+    return projectedNames[path]?.contains("$" + name) ?? false
   }
 
   /// The inherited types of the type named `typeName` declared anywhere in the file.
   public func declaredInheritance(of typeName: String, in path: String) -> [String] {
-    guard let file = parsed(path) else {
-      return []
-    }
-    let collector = TypeDeclarationCollector(name: typeName)
-    collector.walk(file.tree)
-    return collector.inheritance
+    inheritance(in: path)[typeName] ?? []
   }
 
   /// Whether the file has an extension of `typeName` that adopts one of `protocols`.
@@ -116,18 +112,7 @@ public final class SourceIndex {
     to protocols: Set<String>,
     in path: String
   ) -> Bool {
-    guard let file = parsed(path) else {
-      return false
-    }
-    return file.tree.statements.contains { item in
-      guard let extensionDecl = Self.extensionDecl(in: item),
-        extensionDecl.extendedType.trimmedDescription == typeName
-      else {
-        return false
-      }
-      let inherited = Self.inheritance(extensionDecl.inheritanceClause)
-      return inherited.contains { protocols.contains(Self.baseName($0)) }
-    }
+    (inheritance(in: path)[typeName] ?? []).contains { protocols.contains(Self.baseName($0)) }
   }
 }
 
@@ -144,16 +129,47 @@ private extension SourceIndex {
       parsed = ParsedFile(
         tree: tree,
         converter: SourceLocationConverter(fileName: path, tree: tree),
-        text: text
+        text: text,
+        lineCount: text.reduce(1) { count, character in
+          character == "\n" ? count + 1 : count
+        }
       )
     }
     files[path] = parsed
     return parsed
   }
 
+  /// Identifier tokens by name.
+  func identifiers(in path: String, file: ParsedFile) -> [String: [TokenSyntax]] {
+    if let cached = identifierTokens[path] {
+      return cached
+    }
+    var tokens: [String: [TokenSyntax]] = [:]
+    for token in file.tree.tokens(viewMode: .sourceAccurate) {
+      if case .identifier(let text) = token.tokenKind {
+        tokens[text, default: []].append(token)
+      }
+    }
+    identifierTokens[path] = tokens
+    return tokens
+  }
+
+  /// Inherited types and conformances by type name, from declarations and extensions.
+  func inheritance(in path: String) -> [String: [String]] {
+    if let cached = inheritanceByType[path] {
+      return cached
+    }
+    guard let file = parsed(path) else {
+      return [:]
+    }
+    let collector = TypeDeclarationCollector()
+    collector.walk(file.tree)
+    inheritanceByType[path] = collector.inheritance
+    return collector.inheritance
+  }
+
   func declarationNode(in file: ParsedFile, line: Int, column: Int) -> Syntax? {
-    let lines = file.text.split(separator: "\n", omittingEmptySubsequences: false)
-    guard line >= 1, line <= lines.count else {
+    guard line >= 1, line <= file.lineCount else {
       return nil
     }
     let position = file.converter.position(ofLine: line, column: max(column, 1))
@@ -182,10 +198,6 @@ private extension SourceIndex {
       || node.is(ActorDeclSyntax.self) || node.is(TypeAliasDeclSyntax.self)
       || node.is(AssociatedTypeDeclSyntax.self) || node.is(ImportDeclSyntax.self)
       || node.is(MacroDeclSyntax.self) || node.is(ExtensionDeclSyntax.self)
-  }
-
-  static func extensionDecl(in item: CodeBlockItemSyntax) -> ExtensionDeclSyntax? {
-    item.item.as(ExtensionDeclSyntax.self)
   }
 }
 
@@ -375,13 +387,11 @@ private extension SourceIndex {
   }
 }
 
-/// Collects the inherited types of every declaration of one type name in a file.
+/// Collects the inherited types of every type declaration and extension in a file.
 private final class TypeDeclarationCollector: SyntaxVisitor {
-  let name: String
-  var inheritance: [String] = []
+  var inheritance: [String: [String]] = [:]
 
-  init(name: String) {
-    self.name = name
+  init() {
     super.init(viewMode: .sourceAccurate)
   }
 
@@ -410,10 +420,10 @@ private final class TypeDeclarationCollector: SyntaxVisitor {
     return .visitChildren
   }
 
-  private func record(_ declared: String, _ clause: InheritanceClauseSyntax?) {
-    guard declared == name, let clause else {
+  private func record(_ name: String, _ clause: InheritanceClauseSyntax?) {
+    guard let clause else {
       return
     }
-    inheritance += clause.inheritedTypes.map { $0.type.trimmedDescription }
+    inheritance[name, default: []] += clause.inheritedTypes.map { $0.type.trimmedDescription }
   }
 }

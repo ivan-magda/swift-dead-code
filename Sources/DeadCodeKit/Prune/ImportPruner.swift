@@ -19,6 +19,8 @@ public struct PruneOptions: Sendable {
   public var base: String?
   public var all = false
   public var files: [String] = []
+  /// The machine-wide build lock; tests pass their own.
+  public var lockName = ScanRunner.lockName
 
   public init(work: URL) {
     self.work = work
@@ -68,7 +70,7 @@ public final class ImportPruner {
     guard !files.isEmpty else {
       throw DeadCodeError.usage("no Swift files inside a target to check")
     }
-    let lock = try FileLock(name: ScanRunner.lockName) {
+    let lock = try FileLock(name: options.lockName) {
       progress("another swift-dead-code build is running; waiting for it")
     }
     defer {

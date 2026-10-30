@@ -28,6 +28,8 @@ incrementally.
 
 Read `describe` first on an unfamiliar project: if a target is missing, a test target counts
 as product code, or a module name is wrong, fix `.deadcode.yml` before trusting any finding.
+For a library whose public API others use, set `periphery.arguments: [--retain-public]`:
+without it every public declaration the package itself does not call looks unused.
 `scan` and `prune-imports` build in a copy of the project and take a machine-wide lock: run
 them one at a time, never in parallel. They never write into the working tree; the pruner's
 result is a patch you apply yourself.

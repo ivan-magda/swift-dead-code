@@ -12,15 +12,19 @@ public struct ScanRunner: Sendable {
   let model: ProjectModel
   let configuration: Configuration
   let runner: any CommandRunning
+  let lockName: String
 
+  /// `lockName` names the machine-wide build lock; tests pass their own.
   public init(
     model: ProjectModel,
     configuration: Configuration,
-    runner: any CommandRunning = ProcessRunner()
+    runner: any CommandRunning = ProcessRunner(),
+    lockName: String = ScanRunner.lockName
   ) {
     self.model = model
     self.configuration = configuration
     self.runner = runner
+    self.lockName = lockName
   }
 
   /// Runs the scan into `output` and returns the report's path.
@@ -33,7 +37,7 @@ public struct ScanRunner: Sendable {
 
     let scanner = PeripheryScanner(model: model, configuration: configuration, runner: runner)
     try scanner.checkVersion(in: model.root)
-    let lock = try FileLock(name: Self.lockName) {
+    let lock = try FileLock(name: lockName) {
       progress("another swift-dead-code build is running; waiting for it")
     }
     defer {

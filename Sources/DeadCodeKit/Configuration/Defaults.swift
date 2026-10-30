@@ -31,9 +31,7 @@ public enum Defaults {
     "Gemfile.lock",
     "InfoPlist.strings",
     "InfoPlist.xcstrings",
-    "LICENSE",
-    "LICENSE.md",
-    "LICENSE.txt",
+    "LICENSE*",
     "Localizable.strings",
     "Localizable.stringsdict",
     "Localizable.xcstrings",
@@ -57,6 +55,8 @@ public enum Defaults {
     ".circleci/",
     ".claude/",
     ".github/",
+    // Git finds hooks there once the project's setup sets core.hooksPath.
+    ".githooks/",
     ".gitlab/",
     "fastlane/",
     // SwiftPM's Xcode metadata, Xcode Cloud scripts and Settings bundles, at any depth.
