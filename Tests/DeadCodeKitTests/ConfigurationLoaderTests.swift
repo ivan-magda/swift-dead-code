@@ -101,7 +101,8 @@ struct ConfigurationLoaderTests {
   }
 }
 
-@Suite struct ExampleConfigurationTests {
+@Suite
+struct ExampleConfigurationTests {
   static let examples = FixtureProject.fixtures
     .deletingLastPathComponent()
     .deletingLastPathComponent()
