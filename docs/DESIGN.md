@@ -452,3 +452,73 @@ from swift-claw) and SwiftLint (`.swiftlint.yml` modeled on swift-claw) with the
   tool reports which targets have non-Swift sources and limits itself to Swift.
 - CocoaPods dependency declarations (Ruby) are not checked by the gate.
 - XcodeGen and Tuist manifests are not read; generate the project first.
+
+## 14. Changes after the independent review (2026-10-30)
+
+A fresh read-only reviewer checked this design against the brief, the swift-claw scripts,
+the Periphery 3.8.0 source and the candidate clones. Each accepted point was confirmed by
+opening the cited code; the changes below override the sections above.
+
+1. **Local packages** (§5.2): besides `XCLocalSwiftPackageReference`, a project may add a
+   local package as a `wrapper` file reference (IceCubes) or keep packages in a synchronized
+   folder no target owns (NetNewsWire `Modules/`). Every directory with a `Package.swift`
+   reached through either is loaded with the SwiftPM adapter. Product dependencies without a
+   package reference are resolved by product name.
+2. **Synchronized folders** (§5.2): a target's files are its own folders minus its own
+   exception sets, plus the files named by exception sets of other folders that name the
+   target (that is how an extension takes files from the app's folder).
+3. **Builds** (§6, §7.2): each `builds` entry has its own `schemes`, `configuration` and
+   `destination`. Instead of intersecting findings by USR, which drops every finding in code
+   only one build compiles, one Periphery run reads every build's index store
+   (`--index-store-path` repeats): a declaration any build uses is used. Xcode projects must
+   name their schemes; no configuration is passed unless set, so each scheme uses its own.
+4. **Working tree** (§9): `scan` and `prune-imports` build in a copy of the working tree
+   (`<work>/source`, rsync of every file except `.git`, `.build` and `DerivedData`, ignored
+   files included, because Xcode builds need ignored xcconfigs, `Pods/` and generated
+   projects). Every SwiftPM call outside the copy passes `--scratch-path` in a temporary
+   directory (`dump-package` otherwise creates `.build/` in the project). Periphery gets
+   `--json-package-manifest-path` and `--skip-schemes-validation`. Tests compare
+   `git status --porcelain --ignored` before and after each command.
+5. **Mentions** (§7.1): `.deadcode.yml` and the baseline are never candidates and never
+   mentions. `check.not_references` paths are neither candidates nor mentions (swift-claw's
+   `docs/research/` semantics). Swift files under a nested package or project directory belong
+   to that project and are never "uncompiled" candidates.
+6. **xcconfig** (§5.2): module names and settings follow the xcconfig chain (target settings,
+   target xcconfig with includes, project settings, project xcconfig), read with XcodeProj's
+   `XCConfig`.
+7. **Periphery invocation** (§7.2): the tool writes its own Periphery configuration and passes
+   `--config`, so a project's `.periphery.yml` (which could set `strict` or `retain_public`)
+   is ignored with a warning; its options move to `periphery.arguments`. Test code is excluded
+   by path (`--index-exclude` for the smallest directories that hold only test code), not by
+   `--exclude-tests`, which misses local-package test targets. `exclude` becomes
+   `--report-exclude`, so excluded generated code still counts as a user. xcodebuild gets
+   `COMPILER_INDEX_STORE_ENABLE=YES INDEX_ENABLE_DATA_STORE=YES`. Files generated into
+   DerivedData are report-excluded.
+8. **CocoaPods** (§5.2): a Pods target whose sources live outside `Pods/` (a development pod
+   with `:path`) is project code. A `Podfile` without `Pods/` stops with "run `pod install`
+   first".
+9. **Xcode prune** (§7.5): every trial builds every configured build; a file compiled by
+   several targets keeps its trial imports when any owner fails; the strict check sets
+   `SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY` on the copy's target configurations, or
+   appends the SwiftPM suffix to a local package's manifest; `-continue-building-after-errors`
+   goes into `OTHER_SWIFT_FLAGS`.
+10. **Defaults** (§6): `.spi.yml`, `.pre-commit-config.yaml`, `InfoPlist.strings`,
+    `Localizable.*`, `ci_scripts/`, nested `.swiftpm/` are conventional; an asset name also
+    matches by its part before the first digit, `-` or `_`; allowlist `file` and `asset`
+    subjects may be globs; a dependency entry can be `{target: ..., module: ...}`, and the
+    scalar form splits at the last space because module names have none.
+11. **Parity differences to report** (§2): `prune-imports` exits 0 like the script (CI reads
+    the patch); `--strict` exits 1 on a non-empty patch. Assign-only counts depend on notes,
+    which now come from SwiftSyntax. The test-seam name pattern becomes
+    `triage.seam_name_pattern`. Uncompiled Swift files are new candidates.
+12. **Skill** (§1): `skills/removing-dead-code/SKILL.md` keeps the swift-claw stages (ledger,
+    triage, researcher brief, apply, completeness sweep, verify), names CLI commands instead of
+    scripts, and speaks of project, target, test code, build configuration and contract
+    documents. The base-commit comparison of the sweep uses `git worktree add` in the target
+    repository only when the user owns it; otherwise a `git clone --local` of the base.
+13. **Monorepos**: each subproject keeps its own `.deadcode.yml`; commands take
+    `--project-root apps/ios`. Git commands already scope to that directory.
+14. **Evals** (§10): each project records the cloned commit, a machine-checkable
+    `expected.json` (finding → verdict), and the commands that reproduce it.
+15. `retain_hashable_properties` defaults to false: Periphery's Equatable retention already
+    covers Hashable types.
