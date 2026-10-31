@@ -168,6 +168,7 @@ builds:                          # several builds, scanned together
   - name: macos
     schemes: [MacApp]
     destination: "generic/platform=macOS"
+    for_testing: false           # build without the scheme's test targets
 ```
 
 How the checks decide:

@@ -12,3 +12,5 @@ builds:
   - name: mac
     schemes: [NetNewsWire]
     destination: "generic/platform=macOS"
+    # The macOS tests compile AppleScript against the installed app's dictionary.
+    for_testing: false

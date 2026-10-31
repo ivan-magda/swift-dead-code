@@ -41,6 +41,7 @@ struct ConfigurationLoaderTests {
         - name: mac
           schemes: [MacApp]
           destination: "generic/platform=macOS"
+          for_testing: false
       """
 
     // when
@@ -65,6 +66,7 @@ struct ConfigurationLoaderTests {
     #expect(configuration.prune.keepModules == ["Sentry"])
     #expect(configuration.triage.seamNamePattern == "Seam$")
     #expect(configuration.builds.first?.schemes == ["MacApp"])
+    #expect(configuration.builds.first?.forTesting == false)
   }
 
   @Test

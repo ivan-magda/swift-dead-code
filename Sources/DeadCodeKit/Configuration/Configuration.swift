@@ -130,6 +130,9 @@ public struct BuildVariant: Sendable, Equatable {
   public var destination: String?
   public var configuration: String?
   public var buildArguments: [String] = []
+  /// Whether the build includes the scheme's test targets; off when they cannot build here,
+  /// such as tests that compile AppleScript against an installed app.
+  public var forTesting = true
 
   public init(name: String) {
     self.name = name

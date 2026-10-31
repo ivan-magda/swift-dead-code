@@ -182,6 +182,7 @@ private extension ProjectBuilder {
         let indexing = ["COMPILER_INDEX_STORE_ENABLE=YES", "INDEX_ENABLE_DATA_STORE=YES"]
         try buildScheme(
           arguments: arguments + indexing,
+          forTesting: variant.forTesting,
           copy: copy,
           log: work.appendingPathComponent("build-\(variant.name)-\(Self.fileName(scheme)).log")
         )
@@ -221,8 +222,20 @@ private extension ProjectBuilder {
     return shared
   }
 
-  /// Builds one scheme for testing, or plainly when the scheme has no test action.
-  func buildScheme(arguments: [String], copy: URL, log: URL) throws {
+  /// Builds one scheme for testing, or plainly when the scheme has no test action or the
+  /// build turns tests off.
+  func buildScheme(
+    arguments: [String],
+    forTesting includeTests: Bool,
+    copy: URL,
+    log: URL
+  )
+    throws
+  {
+    guard includeTests else {
+      try runBuild(Command("xcodebuild", ["build"] + arguments, in: copy), log: log)
+      return
+    }
     let forTesting = try runner.run(
       Command("xcodebuild", ["build-for-testing"] + arguments, in: copy)
     )

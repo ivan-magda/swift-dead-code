@@ -1,7 +1,10 @@
 # IceCubes: an xcodeproj with extensions in synchronized folders and local packages added as
 # folder references. IceCubesApp.xcconfig comes from IceCubesApp.xcconfig.template (README).
-# The app ships for iOS and visionOS, and 84 files branch on `#if os(visionOS)`: both are built
-# and scanned together, so a declaration either platform uses stays.
+# The app ships for iOS, Mac Catalyst and visionOS; 36 files branch on Mac Catalyst and 84 on
+# visionOS. iOS and Mac Catalyst are built and scanned together, so a declaration either uses
+# stays. The visionOS build fails upstream with Xcode 27.1 ('glassEffect(_:in:)' is unavailable
+# in visionOS, Packages/DesignSystem/.../CardBackgroundModifier.swift:10), so code only visionOS
+# reads can still look unused: triage asks for #if branches.
 project:
   kind: xcode
   path: IceCubesApp.xcodeproj
@@ -10,5 +13,5 @@ project:
 builds:
   - name: ios
     destination: "generic/platform=iOS Simulator"
-  - name: visionos
-    destination: "generic/platform=visionOS Simulator"
+  - name: catalyst
+    destination: "generic/platform=macOS,variant=Mac Catalyst"

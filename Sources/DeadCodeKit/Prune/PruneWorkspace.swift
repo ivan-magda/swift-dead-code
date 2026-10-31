@@ -231,7 +231,7 @@ private extension PruneWorkspace {
     for variant in builder.variants {
       for scheme in try builder.schemes(of: variant, container: container) {
         let arguments =
-          ["build-for-testing"]
+          [variant.forTesting ? "build-for-testing" : "build"]
           + builder.xcodebuildArguments(
             scheme: scheme,
             variant: variant,

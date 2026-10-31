@@ -236,13 +236,16 @@ private extension ConfigurationLoader {
 
   static func buildVariant(_ node: ConfigNode) throws -> BuildVariant {
     let keys = try node.mapping(allowing: [
-      "name", "schemes", "destination", "configuration", "build_arguments",
+      "name", "schemes", "destination", "configuration", "build_arguments", "for_testing",
     ])
     guard let name = keys["name"] else {
       throw node.error("a build needs a 'name'")
     }
     var variant = BuildVariant(name: try name.string())
     variant.schemes = try keys["schemes"]?.strings() ?? []
+    if let forTesting = keys["for_testing"] {
+      variant.forTesting = try forTesting.bool()
+    }
     variant.destination = try keys["destination"]?.string()
     variant.configuration = try keys["configuration"]?.string()
     variant.buildArguments = try keys["build_arguments"]?.strings() ?? []

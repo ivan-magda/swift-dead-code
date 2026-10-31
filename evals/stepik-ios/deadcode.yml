@@ -6,3 +6,5 @@ project:
   schemes: [Stepic Develop]
   configuration: Develop Debug
   destination: "generic/platform=iOS Simulator"
+  # The project and its pods target iOS 12.0; Xcode 27.1 builds 15.0 and later only.
+  build_arguments: ["IPHONEOS_DEPLOYMENT_TARGET=15.0"]
