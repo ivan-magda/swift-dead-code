@@ -47,6 +47,7 @@ it proposes no live code for deletion, and that the project needs nothing but a
 | [NetNewsWire](netnewswire/labels.md) | xcodeproj, iOS and macOS | labeled; two groups verified (20 deletions); a live method the first scan listed was caught before it was applied, and the scan now confirms findings per build |
 | [Element X](element-x/labels.md) | XcodeGen | labeled; one group verified |
 | [GhActionsTest](gh-actions-test/labels.md) | CocoaPods | full cycle on a small app |
+| [Presentr](presentr/labels.md) | CocoaPods, development pod | full cycle: the whole workspace built and scanned; labeled |
 | [Marky-Mark](marky-mark/labels.md) | CocoaPods, development pod | labeled; the library's scheme scanned, the example and tests cannot build with Xcode 27.1 |
 | [GitHawk](githawk/labels.md) | CocoaPods | `describe` and `check` only: does not compile with Xcode 27.1 |
 | [stepik-ios](stepik-ios/deadcode.yml), [Tagger](tagger/deadcode.yml) | CocoaPods | struck: stepik-ios needs a git-crypt key, Tagger has a compile error with Xcode 27.1 |

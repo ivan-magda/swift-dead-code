@@ -1,0 +1,15 @@
+# Presentr: a presentation library whose example app builds it as a CocoaPods development pod,
+# in a workspace below the repository root. Setup in the clone: `pod install` in
+# PresentrExample/.
+project:
+  kind: xcode
+  path: PresentrExample/PresentrExample.xcworkspace
+  schemes: [PresentrExample]
+  destination: "generic/platform=iOS Simulator"
+  # The app targets iOS 9.0 with Swift 3.0 and 4.2 settings; Xcode 27.1 builds iOS 15.0 and
+  # Swift 4 and later, so both are raised for the build.
+  build_arguments: ["IPHONEOS_DEPLOYMENT_TARGET=15.0", "SWIFT_VERSION=5.0"]
+
+periphery:
+  # The library's public API is its contract with the apps that use it.
+  arguments: [--retain-public]
