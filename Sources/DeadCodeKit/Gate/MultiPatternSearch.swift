@@ -20,10 +20,15 @@ struct MultiPatternSearch {
 
   /// The indices of the terms that occur in `text`.
   func matches(in text: String) -> Set<Int> {
+    matches(inBytes: text.utf8)
+  }
+
+  /// The indices of the terms that occur in `bytes`, such as a binary file's contents.
+  func matches<Bytes: Sequence>(inBytes bytes: Bytes) -> Set<Int> where Bytes.Element == UInt8 {
     var found: Set<Int> = []
     var reported = Set<Int32>()
     var state: Int32 = 0
-    for byte in text.utf8 {
+    for byte in bytes {
       state = transition(from: state, on: byte)
       var node = nodes[Int(state)].terms.isEmpty ? nodes[Int(state)].outputLink : state
       while node > 0, reported.insert(node).inserted {

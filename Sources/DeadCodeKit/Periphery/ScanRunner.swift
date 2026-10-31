@@ -159,22 +159,31 @@ private extension ScanRunner {
         ("build \(name), test code excluded", production),
       ]
     }
-    let confirmation = BuildConfirmation(model: model)
-    for (file, byBuild) in [("all", allByBuild), ("prod", productionByBuild)] {
-      let combinedURL = output.appendingPathComponent("\(file).json")
-      let keptURL = combinedURL
+    var combined: [String: [PeripheryFinding]] = [:]
+    for file in ["all", "prod"] {
       let combinedCopy = output.appendingPathComponent("\(file)-combined.json")
       try? FileManager.default.removeItem(at: combinedCopy)
-      try FileManager.default.copyItem(at: combinedURL, to: combinedCopy)
-      let combined = try PeripheryFinding.read(combinedCopy)
-      let kept = confirmation.confirmed(combined, byBuild: byBuild)
+      try FileManager.default.copyItem(
+        at: output.appendingPathComponent("\(file).json"),
+        to: combinedCopy
+      )
+      combined[file] = try PeripheryFinding.read(combinedCopy)
+    }
+    let usrs = Set(combined.values.joined().flatMap(\.ids))
+    var seen: [String: Set<String>] = [:]
+    for (name, store) in build.storesByBuild {
+      seen[name] = try IndexStoreSymbols(store: store).seen(among: usrs)
+    }
+    for (file, byBuild) in [("all", allByBuild), ("prod", productionByBuild)] {
+      let findings = combined[file] ?? []
+      let kept = BuildConfirmation().confirmed(findings, byBuild: byBuild, seen: seen)
       try Self.writeFindings(
-        from: combinedCopy,
+        from: output.appendingPathComponent("\(file)-combined.json"),
         keeping: Set(kept.map(BuildConfirmation.key)),
-        to: keptURL
+        to: output.appendingPathComponent("\(file).json")
       )
       progress(
-        "\(file).json: \(combined.count - kept.count) of \(combined.count) findings dropped: no "
+        "\(file).json: \(findings.count - kept.count) of \(findings.count) findings dropped: no "
           + "build alone confirms them (targets share a module name)"
       )
     }
