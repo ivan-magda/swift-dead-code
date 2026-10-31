@@ -3,6 +3,9 @@ import Foundation
 /// Where an indexed build left its index store, and how Periphery should read it.
 public struct IndexedBuild: Sendable, Equatable {
   public var indexStores: [URL]
+  /// Each build's own index store, when the builds do not share one (see
+  /// `ProjectModel.hasModuleTwins`); empty otherwise.
+  public var storesByBuild: [String: URL] = [:]
   /// `--index-exclude` globs for dependency sources, which would otherwise be scanned.
   public var dependencyExcludes: [String]
   /// `--report-exclude` globs for sources a build generates outside the project.
@@ -162,9 +165,15 @@ private extension ProjectBuilder {
     skipBuild: Bool,
     progress: (String) -> Void
   ) throws -> IndexedBuild {
-    let derivedData = work.appendingPathComponent("DerivedData")
+    // Targets that share a module name merge in one index, so each build then gets its own.
+    let separate = variants.count > 1 && model.hasModuleTwins
+    var derivedDataByBuild: [String: URL] = [:]
     var schemes: [String] = []
     for variant in variants {
+      let derivedData = work.appendingPathComponent(
+        separate ? "DerivedData-\(Self.fileName(variant.name))" : "DerivedData"
+      )
+      derivedDataByBuild[variant.name] = derivedData
       let variantSchemes = try resolvedSchemes(variant, container: container)
       schemes += variantSchemes.filter { !schemes.contains($0) }
       guard !skipBuild else {
@@ -188,20 +197,24 @@ private extension ProjectBuilder {
         )
       }
     }
-    let store = derivedData.appendingPathComponent("Index.noindex/DataStore")
-    guard FileManager.default.fileExists(atPath: store.appendingPathComponent("v5/units").path)
-    else {
-      throw DeadCodeError.failure("no index store in \(store.path); did the build run?")
+    let allDerivedData = Set(derivedDataByBuild.values).sorted { $0.path < $1.path }
+    var storesByBuild: [String: URL] = [:]
+    for (name, derivedData) in derivedDataByBuild {
+      let store = derivedData.appendingPathComponent("Index.noindex/DataStore")
+      guard FileManager.default.fileExists(atPath: store.appendingPathComponent("v5/units").path)
+      else {
+        throw DeadCodeError.failure("no index store in \(store.path); did the build run?")
+      }
+      storesByBuild[name] = store
     }
     let containerFlag = "--project"
     return IndexedBuild(
-      indexStores: [store],
-      dependencyExcludes: [
-        derivedData.appendingPathComponent("SourcePackages/checkouts").path + "/**",
-        "Pods/**",
-        "Carthage/**",
-      ],
-      generatedExcludes: [derivedData.path + "/**"],
+      indexStores: Set(storesByBuild.values).sorted { $0.path < $1.path },
+      storesByBuild: separate ? storesByBuild : [:],
+      dependencyExcludes: allDerivedData.map {
+        $0.appendingPathComponent("SourcePackages/checkouts").path + "/**"
+      } + ["Pods/**", "Carthage/**"],
+      generatedExcludes: allDerivedData.map { $0.path + "/**" },
       projectArguments: [containerFlag, container, "--schemes"] + schemes
         + ["--skip-schemes-validation"]
     )

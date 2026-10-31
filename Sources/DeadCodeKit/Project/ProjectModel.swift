@@ -67,6 +67,12 @@ public struct ProjectModel: Sendable {
   public func target(named name: String) -> ProjectTarget? {
     targets.first { $0.name == name }
   }
+
+  /// Whether two targets share a module name, such as an iOS and a macOS app both named after
+  /// the product: their same-named types get one USR, and one index merges them.
+  public var hasModuleTwins: Bool {
+    Dictionary(grouping: targets, by: \.moduleName).values.contains { $0.count > 1 }
+  }
 }
 
 /// A target: a module with its sources and declared dependencies.

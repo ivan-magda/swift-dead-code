@@ -78,13 +78,18 @@ struct TriageTests {
     )
   }
 
-  static func target(_ name: String, module: String, file: String) -> ProjectTarget {
+  static func target(
+    _ name: String,
+    module: String,
+    file: String,
+    shared: String? = nil
+  ) -> ProjectTarget {
     ProjectTarget(
       name: name,
       moduleName: module,
       role: .product,
       productType: .application,
-      sourceFiles: [file],
+      sourceFiles: [file] + (shared.map { [$0] } ?? []),
       manifestPath: "App.xcodeproj"
     )
   }

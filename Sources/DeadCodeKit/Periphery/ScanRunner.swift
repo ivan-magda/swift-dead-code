@@ -52,16 +52,7 @@ public struct ScanRunner: Sendable {
     let build = try ProjectBuilder(model: model, configuration: configuration, runner: runner)
       .build(copy: copy, work: output, skipBuild: skipBuild, progress: progress)
 
-    let configFile = output.appendingPathComponent("periphery.yml")
-    try PeripheryScanner.writeConfiguration(to: configFile)
-    if FileManager.default.fileExists(
-      atPath: model.root.appendingPathComponent(".periphery.yml").path
-    ) {
-      progress(
-        ".periphery.yml is ignored: put its options in periphery.arguments in "
-          + configuration.sourcePath
-      )
-    }
+    let configFile = try writePeripheryConfiguration(in: output, progress: progress)
     let common = scanner.commonArguments(build: build, configFile: configFile)
     let production = common + scanner.productionArguments()
     progress("Periphery, tests included")
@@ -78,8 +69,17 @@ public struct ScanRunner: Sendable {
       output: output.appendingPathComponent("prod.json"),
       errors: output.appendingPathComponent("prod.err")
     )
+    var scans = [("tests included", common), ("test code excluded", production)]
+    if build.storesByBuild.count > 1 {
+      scans += try confirmByBuild(
+        build,
+        scanner: scanner,
+        paths: ScanPaths(output: output, copy: copy, configFile: configFile),
+        progress: progress
+      )
+    }
     try TextFiles.write(
-      environment(scans: [("tests included", common), ("test code excluded", production)]),
+      environment(scans: scans),
       to: output.appendingPathComponent("environment.txt")
     )
 
@@ -92,6 +92,116 @@ public struct ScanRunner: Sendable {
     )
     try TextFiles.write(triage.render(), to: report)
     return report
+  }
+}
+
+// MARK: - Builds Scanned One by One
+
+/// Where a scan writes: its output directory, the project's working copy, Periphery's
+/// configuration.
+private struct ScanPaths {
+  var output: URL
+  var copy: URL
+  var configFile: URL
+}
+
+private extension ScanRunner {
+  /// Writes Periphery's configuration, so a project's own `.periphery.yml` cannot apply.
+  func writePeripheryConfiguration(in output: URL, progress: (String) -> Void) throws -> URL {
+    let configFile = output.appendingPathComponent("periphery.yml")
+    try PeripheryScanner.writeConfiguration(to: configFile)
+    if FileManager.default.fileExists(
+      atPath: model.root.appendingPathComponent(".periphery.yml").path
+    ) {
+      progress(
+        ".periphery.yml is ignored: put its options in periphery.arguments in "
+          + configuration.sourcePath
+      )
+    }
+    return configFile
+  }
+
+  /// Scans each build's own index store into `<output>/<build>/`, then keeps in `all.json` and
+  /// `prod.json` only the findings the builds confirm; the combined results stay in
+  /// `all-combined.json` and `prod-combined.json`. Returns the command lines it ran.
+  func confirmByBuild(
+    _ build: IndexedBuild,
+    scanner: PeripheryScanner,
+    paths: ScanPaths,
+    progress: (String) -> Void
+  ) throws -> [(String, [String])] {
+    let (output, copy, configFile) = (paths.output, paths.copy, paths.configFile)
+    var commands: [(String, [String])] = []
+    var allByBuild: [String: [PeripheryFinding]] = [:]
+    var productionByBuild: [String: [PeripheryFinding]] = [:]
+    for (name, store) in build.storesByBuild.sorted(by: { $0.key < $1.key }) {
+      var single = build
+      single.indexStores = [store]
+      let directory = output.appendingPathComponent(name)
+      try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+      let common = scanner.commonArguments(build: single, configFile: configFile)
+      let production = common + scanner.productionArguments()
+      progress("Periphery, build \(name) alone")
+      for (file, arguments) in [("all", common), ("prod", production)] {
+        try scanner.scan(
+          arguments: arguments,
+          in: copy,
+          output: directory.appendingPathComponent("\(file).json"),
+          errors: directory.appendingPathComponent("\(file).err")
+        )
+      }
+      allByBuild[name] = try PeripheryFinding.read(directory.appendingPathComponent("all.json"))
+      productionByBuild[name] = try PeripheryFinding.read(
+        directory.appendingPathComponent("prod.json")
+      )
+      commands += [
+        ("build \(name), tests included", common),
+        ("build \(name), test code excluded", production),
+      ]
+    }
+    let confirmation = BuildConfirmation(model: model)
+    for (file, byBuild) in [("all", allByBuild), ("prod", productionByBuild)] {
+      let combinedURL = output.appendingPathComponent("\(file).json")
+      let keptURL = combinedURL
+      let combinedCopy = output.appendingPathComponent("\(file)-combined.json")
+      try? FileManager.default.removeItem(at: combinedCopy)
+      try FileManager.default.copyItem(at: combinedURL, to: combinedCopy)
+      let combined = try PeripheryFinding.read(combinedCopy)
+      let kept = confirmation.confirmed(combined, byBuild: byBuild)
+      try Self.writeFindings(
+        from: combinedCopy,
+        keeping: Set(kept.map(BuildConfirmation.key)),
+        to: keptURL
+      )
+      progress(
+        "\(file).json: \(combined.count - kept.count) of \(combined.count) findings dropped: no "
+          + "build alone confirms them (targets share a module name)"
+      )
+    }
+    return commands
+  }
+
+  /// Copies Periphery's JSON objects whose findings `keys` names, so every field survives.
+  static func writeFindings(
+    from source: URL,
+    keeping keys: Set<String>,
+    to destination: URL
+  )
+    throws
+  {
+    let data = try Data(contentsOf: source)
+    guard let objects = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+      throw DeadCodeError.failure("\(source.path) is not a Periphery JSON array")
+    }
+    let kept = objects.filter { object in
+      let fields = ["location", "kind", "name"].map { object[$0] as? String ?? "" }
+      return keys.contains(fields.joined(separator: " "))
+    }
+    let output = try JSONSerialization.data(
+      withJSONObject: kept,
+      options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+    )
+    try output.write(to: destination)
   }
 }
 
