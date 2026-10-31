@@ -15,6 +15,7 @@ public enum Defaults {
     ".swift-version",
     ".swiftformat",
     ".swiftlint.yml",
+    ".travis.yml",
     ".xcode-version",
     "AGENTS.md",
     "Brewfile",
@@ -27,8 +28,12 @@ public enum Defaults {
     "AppShortcuts.xcstrings",
     "Cartfile.resolved",
     "Contents.json",
+    // macOS reads it from the app bundle to migrate a sandbox container.
+    "container-migration.plist",
     "Gemfile",
     "Gemfile.lock",
+    // Firebase reads it from the app bundle by name.
+    "GoogleService-Info.plist",
     "InfoPlist.strings",
     "InfoPlist.xcstrings",
     "LICENCE*",
@@ -58,9 +63,9 @@ public enum Defaults {
     ".github/",
     // Git finds hooks there once the project's setup sets core.hooksPath.
     ".githooks/",
-    // Dependency managers own these directories.
-    "Carthage/",
-    "Pods/",
+    // Dependency managers own these directories, at any depth.
+    "**/Carthage/**",
+    "**/Pods/**",
     ".gitlab/",
     "fastlane/",
     // SwiftPM's Xcode metadata, Xcode Cloud scripts and Settings bundles, at any depth.

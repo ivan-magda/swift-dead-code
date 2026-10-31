@@ -14,3 +14,8 @@ builds:
     destination: "generic/platform=macOS"
     # The macOS tests compile AppleScript against the installed app's dictionary.
     for_testing: false
+
+check:
+  # Read by people and release tooling outside the build: notes, App Store copy and
+  # screenshots, the Sparkle appcast served from the repository, and release scripts.
+  conventional_paths: ["Technotes/", "AppStore/", "Appcasts/", "buildscripts/", "scripts/"]

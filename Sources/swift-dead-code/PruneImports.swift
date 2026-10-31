@@ -6,16 +6,16 @@ struct PruneImports: ParsableCommand {
   static let configuration = CommandConfiguration(
     abstract: "Find imports the compiler proves removable, in a copy of the project.",
     discussion: """
-      Periphery reports unused imports only for modules it indexed, so imports of package
-      dependencies and some project imports never show up. This command removes imports in
-      WORK/copy one module at a time, builds, and restores every import the compiler needs,
-      then restores imports a file borrows from another file of its target
+      Periphery reports unused imports only for modules it indexed, so imports of package \
+      dependencies and some project imports never show up. This command removes imports in \
+      WORK/copy one module at a time, builds, and restores every import the compiler needs, \
+      then restores imports a file borrows from another file of its target \
       (MemberImportVisibility). It writes WORK/prune.patch and never touches the working tree.
 
-      --check-only lists the files that compile only because another file of their target
-      imports a module. --base and --all skip test code unless --include-tests is given.
-      Imports of Foundation and OS modules are skipped unless --include-platform: a build
-      for one platform cannot prove another still compiles without them. Imports inside #if
+      --check-only lists the files that compile only because another file of their target \
+      imports a module. --base and --all skip test code unless --include-tests is given. \
+      Imports of Foundation and OS modules are skipped unless --include-platform: a build \
+      for one platform cannot prove another still compiles without them. Imports inside #if \
       are never candidates. Runs take a machine-wide lock.
       """
   )

@@ -6,8 +6,8 @@ struct Triage: ParsableCommand {
   static let configuration = CommandConfiguration(
     abstract: "Turn two Periphery JSON scans into a report with false-positive hints.",
     discussion: """
-      ALL_JSON is a scan with tests included; PROD_JSON leaves test code out, so its extra
-      findings are production declarations only tests use. Notes point at the check to make;
+      ALL_JSON is a scan with tests included; PROD_JSON leaves test code out, so its extra \
+      findings are production declarations only tests use. Notes point at the check to make; \
       they never prove a declaration dead or alive.
       """
   )

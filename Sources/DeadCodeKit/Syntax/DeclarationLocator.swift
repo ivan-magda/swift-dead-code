@@ -50,6 +50,7 @@ public final class SourceIndex {
   private var identifierTokens: [String: [String: [TokenSyntax]]] = [:]
   private var projectedNames: [String: Set<String>] = [:]
   private var inheritanceByType: [String: [String: [String]]] = [:]
+  private var topLevelTypes: [String: Set<String>] = [:]
 
   public init(root: URL) {
     self.root = root
@@ -106,6 +107,14 @@ public final class SourceIndex {
     inheritance(in: path)[typeName] ?? []
   }
 
+  /// The names of the types the file declares at top level, extensions excluded.
+  public func topLevelTypeNames(in path: String) -> Set<String> {
+    if topLevelTypes[path] == nil {
+      _ = inheritance(in: path)
+    }
+    return topLevelTypes[path] ?? []
+  }
+
   /// Whether the file has an extension of `typeName` that adopts one of `protocols`.
   public func hasConformingExtension(
     of typeName: String,
@@ -160,11 +169,13 @@ private extension SourceIndex {
       return cached
     }
     guard let file = parsed(path) else {
+      topLevelTypes[path] = []
       return [:]
     }
     let collector = TypeDeclarationCollector()
     collector.walk(file.tree)
     inheritanceByType[path] = collector.inheritance
+    topLevelTypes[path] = collector.topLevelTypes
     return collector.inheritance
   }
 
@@ -387,37 +398,69 @@ private extension SourceIndex {
   }
 }
 
-/// Collects the inherited types of every type declaration and extension in a file.
+/// Collects the inherited types of every type declaration and extension in a file, and the
+/// names of its top-level types.
 private final class TypeDeclarationCollector: SyntaxVisitor {
   var inheritance: [String: [String]] = [:]
+  var topLevelTypes: Set<String> = []
+  private var depth = 0
 
   init() {
     super.init(viewMode: .sourceAccurate)
   }
 
   override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind {
-    record(node.name.text, node.inheritanceClause)
+    enter(node.name.text, node.inheritanceClause)
     return .visitChildren
+  }
+
+  override func visitPost(_ node: StructDeclSyntax) {
+    depth -= 1
   }
 
   override func visit(_ node: ClassDeclSyntax) -> SyntaxVisitorContinueKind {
-    record(node.name.text, node.inheritanceClause)
+    enter(node.name.text, node.inheritanceClause)
     return .visitChildren
+  }
+
+  override func visitPost(_ node: ClassDeclSyntax) {
+    depth -= 1
   }
 
   override func visit(_ node: EnumDeclSyntax) -> SyntaxVisitorContinueKind {
-    record(node.name.text, node.inheritanceClause)
+    enter(node.name.text, node.inheritanceClause)
     return .visitChildren
   }
 
+  override func visitPost(_ node: EnumDeclSyntax) {
+    depth -= 1
+  }
+
   override func visit(_ node: ActorDeclSyntax) -> SyntaxVisitorContinueKind {
-    record(node.name.text, node.inheritanceClause)
+    enter(node.name.text, node.inheritanceClause)
     return .visitChildren
+  }
+
+  override func visitPost(_ node: ActorDeclSyntax) {
+    depth -= 1
   }
 
   override func visit(_ node: ExtensionDeclSyntax) -> SyntaxVisitorContinueKind {
     record(node.extendedType.trimmedDescription, node.inheritanceClause)
+    depth += 1
     return .visitChildren
+  }
+
+  override func visitPost(_ node: ExtensionDeclSyntax) {
+    depth -= 1
+  }
+
+  private func enter(_ name: String, _ clause: InheritanceClauseSyntax?) {
+    if depth == 0 {
+      topLevelTypes.insert(name)
+    }
+    depth += 1
+    record(name, clause)
   }
 
   private func record(_ name: String, _ clause: InheritanceClauseSyntax?) {

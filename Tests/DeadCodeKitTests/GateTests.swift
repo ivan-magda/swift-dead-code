@@ -122,6 +122,7 @@ struct GateTests {
     try project.write("#!/bin/sh\n", to: ".githooks/pre-commit")
     try project.write("Commercial terms.\n", to: "LICENSE-COMMERCIAL")
     try project.write("PODFILE CHECKSUM: 0\n", to: "Pods/Manifest.lock")
+    try project.write("PODFILE CHECKSUM: 0\n", to: "Vendor/Kit/Pods/Manifest.lock")
     _ = try project.git(["add", "--all"])
 
     // when
@@ -132,6 +133,26 @@ struct GateTests {
     #expect(!findings.contains(GateFinding(kind: .file, subject: ".githooks/pre-commit")))
     #expect(!findings.contains(GateFinding(kind: .file, subject: "LICENSE-COMMERCIAL")))
     #expect(!findings.contains(GateFinding(kind: .file, subject: "Pods/Manifest.lock")))
+    #expect(!findings.contains(GateFinding(kind: .file, subject: "Vendor/Kit/Pods/Manifest.lock")))
+    #expect(findings.contains(GateFinding(kind: .file, subject: "docs/unused-mockup.png")))
+  }
+
+  @Test(.enabled(if: Tools.hasXcodeGen))
+  func filesARunScriptPhaseNamesAreNotFindings() throws {
+    // given: without project.yml, only Shop's Run Script phase names its script and its input.
+    let project = try FixtureProject.copy("XcodeShop")
+    defer {
+      project.remove()
+    }
+    _ = try project.git(["rm", "--quiet", "--force", "project.yml"])
+
+    // when
+    let findings = try Gate(model: try project.load(), configuration: Configuration()).findings()
+
+    // then
+    let script = GateFinding(kind: .file, subject: "BuildPhases/stamp-build-number.sh")
+    #expect(!findings.contains(script))
+    #expect(!findings.contains(GateFinding(kind: .file, subject: "Config/release-version.txt")))
     #expect(findings.contains(GateFinding(kind: .file, subject: "docs/unused-mockup.png")))
   }
 

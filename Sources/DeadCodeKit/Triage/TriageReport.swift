@@ -45,15 +45,17 @@ public struct TriageReport {
     let resources = StringMentions.resources(
       among: (try? Git(directory: model.root).trackedFiles()) ?? []
     )
+    let sources = SourceIndex(root: sourceRoot)
     notes = TriageNotes(
       model: model,
       configuration: configuration,
-      sources: SourceIndex(root: sourceRoot),
+      sources: sources,
       mentions: StringMentions(
         root: sourceRoot,
         swiftFiles: Array(swiftFiles),
         resourceFiles: resources
-      )
+      ),
+      twins: ModuleTwins(model: model, sources: sources)
     )
   }
 

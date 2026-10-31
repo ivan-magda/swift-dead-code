@@ -78,6 +78,17 @@ struct TriageTests {
     )
   }
 
+  static func target(_ name: String, module: String, file: String) -> ProjectTarget {
+    ProjectTarget(
+      name: name,
+      moduleName: module,
+      role: .product,
+      productType: .application,
+      sourceFiles: [file],
+      manifestPath: "App.xcodeproj"
+    )
+  }
+
   @Test
   func notesPointAtTheCheckThatDecides() throws {
     // given
@@ -160,6 +171,69 @@ struct TriageTests {
     }
     #expect(report.contains("exposed to Objective-C: check selectors"))
     #expect(report.contains("Unused declarations: 12. Test-only production declarations: 1."))
+  }
+
+  @Test
+  func notesTypesATargetWithTheSameModuleNameAlsoDeclares() throws {
+    // given: the iOS and macOS apps are both module App and both declare Inspector; Kit's
+    // Inspector belongs to another module.
+    let project = try FixtureProject.copy("GatePackage")
+    defer {
+      project.remove()
+    }
+    let source = """
+      final class Inspector {
+        func refresh() {}
+      }
+
+      private extension Inspector {
+        func showError() {}
+      }
+      """
+    for directory in ["iOS", "Mac", "Kit"] {
+      try project.write(source, to: "\(directory)/Inspector.swift")
+    }
+    let model = ProjectModel(
+      kind: .xcode(container: "App.xcodeproj"),
+      root: project.root,
+      targets: [
+        Self.target("App-iOS", module: "App", file: "iOS/Inspector.swift"),
+        Self.target("App-macOS", module: "App", file: "Mac/Inspector.swift"),
+        Self.target("Kit", module: "Kit", file: "Kit/Inspector.swift"),
+      ]
+    )
+    let findings = ["Mac", "Kit"].map { directory in
+      PeripheryFinding(
+        kind: "function.method.instance",
+        name: "showError()",
+        location: "\(directory)/Inspector.swift:6:8",
+        ids: ["s:\(directory)"],
+        hints: ["unused"]
+      )
+    }
+
+    // when
+    let report = TriageReport(
+      all: findings,
+      production: findings,
+      model: model,
+      configuration: Configuration(),
+      sourceRoot: project.root
+    )
+    .render()
+
+    // then
+    let twinNote =
+      "Inspector is declared again in App-iOS, also module App: the builds share one index, "
+      + "which merges the two and can lose this copy's callers"
+    #expect(
+      report.contains(
+        "| Mac/Inspector.swift:6:8 | function.method.instance | `showError()` | \(twinNote) |"
+      )
+    )
+    #expect(
+      report.contains("| Kit/Inspector.swift:6:8 | function.method.instance | `showError()` | - |")
+    )
   }
 
   @Test

@@ -8,7 +8,7 @@ struct SwiftDeadCode: ParsableCommand {
     commandName: "swift-dead-code",
     abstract: "Find and remove dead code in SwiftPM packages and Xcode projects.",
     discussion: """
-      Configuration lives in .deadcode.yml at the project root. Every subcommand reads it;
+      Configuration lives in .deadcode.yml at the project root. Every subcommand reads it; \
       only `scan` and `prune-imports` build, and they build into their own directory.
       """,
     version: "0.1.0",

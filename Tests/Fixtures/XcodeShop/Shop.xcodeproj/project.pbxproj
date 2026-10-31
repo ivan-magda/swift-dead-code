@@ -254,6 +254,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 1449C471D5DE2774E62E6210 /* Build configuration list for PBXNativeTarget "Shop" */;
 			buildPhases = (
+				E4640199CBE4D05D782EE9CB /* Stamp build number */,
 				C8B63CC7608AF4EC5A403194 /* Sources */,
 				730F27DE421BEC5D74D72693 /* Resources */,
 				087FCDD60750A27CD9332EC2 /* Frameworks */,
@@ -381,6 +382,28 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		E4640199CBE4D05D782EE9CB /* Stamp build number */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/Config/release-version.txt",
+			);
+			name = "Stamp build number";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "sh \"${SRCROOT}/BuildPhases/stamp-build-number.sh\"";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		49B738D97E97374FCFF0A06B /* Sources */ = {

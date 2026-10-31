@@ -6,9 +6,9 @@ struct Scan: ParsableCommand {
   static let configuration = CommandConfiguration(
     abstract: "Build with an index store and run Periphery with and without tests.",
     discussion: """
-      Copies the project into OUTPUT/source and builds there, so the working tree is never
-      written. Writes OUTPUT/all.json, OUTPUT/prod.json and the triage in OUTPUT/report.md.
-      Reuse one OUTPUT directory so reruns build incrementally. Builds take a machine-wide
+      Copies the project into OUTPUT/source and builds there, so the working tree is never \
+      written. Writes OUTPUT/all.json, OUTPUT/prod.json and the triage in OUTPUT/report.md. \
+      Reuse one OUTPUT directory so reruns build incrementally. Builds take a machine-wide \
       lock: two at once finish later than the same two in sequence.
       """
   )

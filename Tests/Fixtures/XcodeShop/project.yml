@@ -18,6 +18,11 @@ targets:
       - target: Spare
       - target: ShopWidget
       - package: Feature
+    preBuildScripts:
+      - name: Stamp build number
+        script: sh "${SRCROOT}/BuildPhases/stamp-build-number.sh"
+        inputFiles:
+          - $(SRCROOT)/Config/release-version.txt
     info:
       path: Shop/Info.plist
       properties:

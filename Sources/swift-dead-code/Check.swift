@@ -5,8 +5,8 @@ struct Check: ParsableCommand {
   static let configuration = CommandConfiguration(
     abstract: "Fail on target dependencies nothing imports and files or assets nothing names.",
     discussion: """
-      Needs no build: it reads the manifest or project file and the tracked files. Findings
-      kept on purpose go to the allowlist in .deadcode.yml with a reason; a stale, duplicate
+      Needs no build: it reads the manifest or project file and the tracked files. Findings \
+      kept on purpose go to the allowlist in .deadcode.yml with a reason; a stale, duplicate \
       or reasonless entry also fails.
       """
   )

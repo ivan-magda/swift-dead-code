@@ -237,6 +237,13 @@ private extension XcodeProjectAdapter {
     for configuration in pbxproj.buildConfigurations {
       Self.recordBuildSettings(of: configuration, sourceRoot: sourceRoot, context: &context)
     }
+    // Run Script phases name the scripts and files they use, as build settings do.
+    for phase in pbxproj.shellScriptBuildPhases {
+      let paths =
+        phase.inputPaths + phase.outputPaths + (phase.inputFileListPaths ?? [])
+        + (phase.outputFileListPaths ?? [])
+      context.buildSettingLines.insert(([phase.shellScript ?? ""] + paths).joined(separator: "\n"))
+    }
     for package in pbxproj.rootObject?.localPackages ?? [] {
       let directory = sourceRoot.appendingPathComponent(package.relativePath)
       if let path = context.relative(directory) {

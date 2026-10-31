@@ -22,15 +22,22 @@ The first run, before the tool learned three conventions, also listed `AGENTS.MD
 image sets loaded as `"AppIconAlternate\(index)-image"`; all FALSE, all fixed in the tool
 (DECISIONS.md, 2026-10-30).
 
-## `scan`, iOS build (210 unused declarations)
+## `scan` (iOS alone: 210 unused declarations; iOS and Mac Catalyst together: 197)
+
+The Mac Catalyst build removes 15 iOS-only false positives (13 `openWindow` properties,
+`windowResize()`, `accountPopover(_:)`, all read in `#if targetEnvironment(macCatalyst)` code) and
+adds 2 declarations only the Catalyst build compiles (`HapticManager.FeedbackType` and its case).
+The classes below come from the iOS scan; the counts change only by those rows.
+
+Counted on the iOS and Mac Catalyst scan (195 `unused` declarations):
 
 | Class | Count | Verdict | Triage note |
 | --- | --- | --- | --- |
-| `@Environment` property nothing reads | 97 | TRUE as a class; 30 verified below | "@Environment nothing reads: usually a leftover..." |
-| App Intents and widget-configuration static metadata (`description`, `typeDisplayName`) | 17 | FALSE: the system reads them | "a AppIntent / WidgetConfigurationIntent: the system finds and calls it" |
-| `@State` read only through `$name` | part of 22 | FALSE: Xcode 27 indexes the projected value separately | "read through its projected value $name" |
-| `*_Previews` structs and preview-only data (`previewAccount`) | 9 + 5 | KEEP: design time | "SwiftUI preview" for the structs; preview data has no note |
-| Other declarations (methods, inits, statics, properties) | ~60 | not labeled one by one | — |
+| `@Environment` property nothing reads | 86 | TRUE as a class; 30 verified below | "@Environment nothing reads: usually a leftover..." |
+| `@State` read only through `$name` | 18 | FALSE: Xcode 27 indexes the projected value separately | "read through its projected value $name" |
+| App Intents and widget-configuration static metadata (`description`, `typeDisplayName`) | 12 | FALSE: the system reads them | "a AppIntent / WidgetConfigurationIntent: the system finds and calls it" |
+| `*_Previews` structs and preview-only data (`previewAccount`) | 12 | KEEP: design time | "SwiftUI preview" for the structs; the preview data has no note |
+| Other declarations (methods, inits, statics, properties, 4 other `@State`) | 67 | not labeled one by one | — |
 
 `@AccessibilityFocusState private var initialFocusBugWorkaround` (StatusDetailView.swift:24)
 is AMBIGUOUS: its doc comment calls it a VoiceOver workaround, yet nothing sets it; the

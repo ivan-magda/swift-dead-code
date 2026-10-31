@@ -59,4 +59,20 @@ Opened and matched: the declarations in `AccountDetailHeaderView.swift:11-25` (`
 
 ## Build and tests
 
-Pending: `runs/icecubes-verify.status`.
+Both groups together, in the verification clone, with a separate DerivedData:
+
+| Check | Command | Result |
+| --- | --- | --- |
+| iOS | `xcodebuild build-for-testing -scheme IceCubesApp -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO` | TEST BUILD SUCCEEDED |
+| Mac Catalyst | same with `'generic/platform=macOS,variant=Mac Catalyst'` | exit 0 |
+| visionOS | same with `'generic/platform=visionOS Simulator'` | fails, and fails identically without the deletions: `'glassEffect(_:in:)' is unavailable in visionOS` at `Packages/DesignSystem/Sources/DesignSystem/CardBackgroundModifier.swift:10:15`, an upstream incompatibility with Xcode 27.1 |
+| Account tests | `xcodebuild test -scheme AccountTests -destination 'platform=iOS Simulator,name=iPhone 17'` | 3 tests, 0 failures |
+| StatusKit tests | same, `-scheme StatusKitTests` | 36 tests, 0 failures |
+| Timeline tests | same, `-scheme TimelineTests` | 9 tests passed |
+
+The scan with iOS and Mac Catalyst together still reports all 30 deleted declarations as
+unused. It no longer reports 15 declarations the iOS-only scan did (13 `openWindow`
+properties, `windowResize()`, `accountPopover(_:)`): Mac Catalyst code reads them. None of those
+was proposed for deletion.
+
+Nothing proposed for deletion turned out alive.

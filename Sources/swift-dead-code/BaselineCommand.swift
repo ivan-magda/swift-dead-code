@@ -7,10 +7,10 @@ struct BaselineCommand: ParsableCommand {
     commandName: "baseline",
     abstract: "Fail on Periphery findings in product code that the baseline does not list.",
     discussion: """
-      The baseline (periphery.baseline in .deadcode.yml) lists known findings by USR, which
-      stays the same when code moves. Findings in test code are listed but never fail. Entries
-      no scan reports any more are named; they do not fail. --write replaces the baseline with
-      the product-code findings: add one only for an intentional seam, contract or backlog
+      The baseline (periphery.baseline in .deadcode.yml) lists known findings by USR, which \
+      stays the same when code moves. Findings in test code are listed but never fail. Entries \
+      no scan reports any more are named; they do not fail. --write replaces the baseline with \
+      the product-code findings: add one only for an intentional seam, contract or backlog \
       item you decided to keep, and delete dead code instead.
       """
   )

@@ -1,0 +1,36 @@
+{
+  "check": {
+    "findings": 10,
+    "findings_before_tool_fix": 52
+  },
+  "commit": "2ad6e689125801abeb7e356360785c08a4864982",
+  "deletions_alive": 0,
+  "deletions_verified": 38,
+  "false_positives_flagged_by_triage": 30,
+  "kind": "xcodeproj + local packages",
+  "scan": {
+    "redundant_public": 233,
+    "unused_imports": 40,
+    "unused_ios": 210,
+    "unused_ios_catalyst": 197
+  },
+  "seconds": {
+    "check": 23,
+    "scan_ios": 284,
+    "scan_ios_catalyst": 154
+  },
+  "verdicts": {
+    "AMBIGUOUS": 2,
+    "FALSE": 30,
+    "KEEP": 13,
+    "TRUE": 38,
+    "unlabeled": 123
+  },
+  "verdicts_note": "on the iOS+Catalyst scan: TRUE = 8 dependencies + 30 verified declarations (56 more @Environment properties are TRUE as a class, unverified); FALSE = 18 projected values + 12 system-read metadata, all flagged by triage; KEEP = 12 previews + launch_sim.sh",
+  "verification": {
+    "catalyst_build": "succeeded",
+    "ios_build": "succeeded",
+    "tests": 48,
+    "visionos_build": "fails upstream without the deletions too"
+  }
+}

@@ -42,6 +42,7 @@ struct TriageNotes {
   let configuration: Configuration
   let sources: SourceIndex
   let mentions: StringMentions
+  let twins: ModuleTwins
 
   /// The notes for one finding; `flaggedFunctions` are the bare names of flagged functions.
   func notes(for finding: PeripheryFinding, flaggedFunctions: Set<String> = []) -> [String] {
@@ -82,7 +83,47 @@ struct TriageNotes {
     if let context {
       notes += platformNotes(finding, context: context)
     }
+    if let context, let note = moduleTwinNote(finding, context: context) {
+      notes.append(note)
+    }
     return notes
+  }
+}
+
+/// Targets that share a module name, such as an iOS and a macOS app both named after the
+/// product. Their builds share one index, where same-named types in them merge.
+struct ModuleTwins {
+  /// For each target that has twins, each twin and the top-level types it declares.
+  private let twins: [String: [(target: ProjectTarget, types: Set<String>)]]
+
+  init(model: ProjectModel, sources: SourceIndex) {
+    var twins: [String: [(target: ProjectTarget, types: Set<String>)]] = [:]
+    for group in Dictionary(grouping: model.targets, by: \.moduleName).values where group.count > 1
+    {
+      let declared = group.map { target in
+        let types = target.sourceFiles.reduce(into: Set<String>()) { types, path in
+          types.formUnion(sources.topLevelTypeNames(in: path))
+        }
+        return (target: target, types: types)
+      }
+      for target in group {
+        twins[target.name] = declared.filter { $0.target.name != target.name }
+      }
+    }
+    self.twins = twins
+  }
+
+  /// A twin of a target compiling `path` that declares `typeName` in a file of its own.
+  func twin(declaring typeName: String, in path: String, model: ProjectModel) -> ProjectTarget? {
+    for owner in model.targets where owner.compiles(path) {
+      let twin = twins[owner.name]?.first { twin in
+        !twin.target.compiles(path) && twin.types.contains(typeName)
+      }
+      if let twin {
+        return twin.target
+      }
+    }
+    return nil
   }
 }
 
@@ -218,6 +259,21 @@ private extension TriageNotes {
       )
     }
     return notes
+  }
+
+  /// Periphery merged a type that a target with the same module name also declares.
+  func moduleTwinNote(_ finding: PeripheryFinding, context: DeclarationContext) -> String? {
+    let isType = ["class", "struct", "enum"].contains(finding.kind)
+    guard let outermost = context.enclosingTypes.last?.name ?? (isType ? finding.bareName : nil)
+    else {
+      return nil
+    }
+    let typeName = String(outermost.prefix { $0 != "." && $0 != "<" })
+    guard let twin = twins.twin(declaring: typeName, in: finding.path, model: model) else {
+      return nil
+    }
+    return "\(typeName) is declared again in \(twin.name), also module \(twin.moduleName): the "
+      + "builds share one index, which merges the two and can lose this copy's callers"
   }
 
   /// Periphery spells attributes as `@objc` or `objc`.
