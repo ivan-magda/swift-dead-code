@@ -89,6 +89,43 @@ struct TriageTests {
     )
   }
 
+  /// The rows `notesPointAtTheCheckThatDecides` expects, by line, kind and name.
+  static let expectedRows = [
+    ("6:8 | enumelement | `slow`", "Mode is CaseIterable: reachable through allCases"),
+    ("10:7 | var.instance | `id`", "Payload is Encodable: the field is serialized"),
+    (
+      "14:8 | function.method.instance | `load()`",
+      "protocol requirement: check calls on conforming types and documented contracts"
+    ),
+    (
+      "18:18 | function.method.instance | `tapped(_:)`",
+      "may witness a requirement of: UIViewController; @IBAction: connected in a storyboard "
+        + "or XIB? check nibs the scan did not read"
+    ),
+    ("20:22 | var.instance | `selection`", "read through its projected value $selection"),
+    (
+      "31:8 | function.method.instance | `helper()`",
+      "may witness a requirement of: UIViewController; used only by flagged caller: settle "
+        + "that first"
+    ),
+    ("35:8 | enumelement | `legacyName`", "CodingKeys case: synthesized Codable uses it"),
+    ("39:6 | function.free | `makeStoreForTesting()`", "named or documented as a test seam"),
+    (
+      "41:14 | var.parameter | `isolation`",
+      "isolated parameter: it runs the function on that actor, a use by effect"
+    ),
+    (
+      "9:17 | protocol | `Codable`",
+      "nothing uses it as the protocol: a marker for code generators (Sourcery) or runtime "
+        + "discovery keeps it"
+    ),
+    (
+      "51:39 | var.instance | `dismiss`",
+      "@Environment nothing reads: usually a leftover, unless a comment makes its declaration "
+        + "a workaround; check #if branches for platforms the scan did not build"
+    ),
+  ]
+
   @Test
   func notesPointAtTheCheckThatDecides() throws {
     // given
@@ -130,42 +167,7 @@ struct TriageTests {
     .render()
 
     // then
-    let expectedRows = [
-      ("6:8 | enumelement | `slow`", "Mode is CaseIterable: reachable through allCases"),
-      ("10:7 | var.instance | `id`", "Payload is Encodable: the field is serialized"),
-      (
-        "14:8 | function.method.instance | `load()`",
-        "protocol requirement: check calls on conforming types and documented contracts"
-      ),
-      (
-        "18:18 | function.method.instance | `tapped(_:)`",
-        "may witness a requirement of: UIViewController; @IBAction: connected in a storyboard "
-          + "or XIB? check nibs the scan did not read"
-      ),
-      ("20:22 | var.instance | `selection`", "read through its projected value $selection"),
-      (
-        "31:8 | function.method.instance | `helper()`",
-        "may witness a requirement of: UIViewController; used only by flagged caller: settle "
-          + "that first"
-      ),
-      ("35:8 | enumelement | `legacyName`", "CodingKeys case: synthesized Codable uses it"),
-      ("39:6 | function.free | `makeStoreForTesting()`", "named or documented as a test seam"),
-      (
-        "41:14 | var.parameter | `isolation`",
-        "isolated parameter: it runs the function on that actor, a use by effect"
-      ),
-      (
-        "9:17 | protocol | `Codable`",
-        "nothing uses it as the protocol: a marker for code generators (Sourcery) or runtime "
-          + "discovery keeps it"
-      ),
-      (
-        "51:39 | var.instance | `dismiss`",
-        "@Environment nothing reads: usually a leftover, unless a comment makes its declaration "
-          + "a workaround; check #if branches for platforms the scan did not build"
-      ),
-    ]
-    for (declaration, notes) in expectedRows {
+    for (declaration, notes) in Self.expectedRows {
       let row = "| Sources/App/Main.swift:\(declaration) | \(notes) |"
       #expect(report.contains(row), "missing: \(row)")
     }

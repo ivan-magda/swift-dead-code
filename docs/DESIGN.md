@@ -447,7 +447,8 @@ from swift-claw) and SwiftLint (`.swiftlint.yml` modeled on swift-claw) with the
 ## 13. Known limits
 
 - Results are valid only for the built platforms and configurations; use `builds` to scan
-  several and intersect.
+  several, and a declaration any of them uses stays (§14.3). Targets that share a module name
+  merge in that shared index (§15.3).
 - KMP and other non-Swift sources are invisible to Periphery and to the import checks; the
   tool reports which targets have non-Swift sources and limits itself to Swift.
 - CocoaPods dependency declarations (Ruby) are not checked by the gate.
@@ -522,3 +523,25 @@ opening the cited code; the changes below override the sections above.
     `expected.json` (finding → verdict), and the commands that reproduce it.
 15. `retain_hashable_properties` defaults to false: Periphery's Equatable retention already
     covers Hashable types.
+
+## 15. Changes from the evals (2026-10-31)
+
+Each change below came from a false finding on a real project and needs no project-specific
+knowledge; `DECISIONS.md` has the reasons and rollbacks.
+
+1. **Gate mentions** (§7.1): Run Script phases' scripts and input and output paths count, as
+   build settings do; a stem shorter than `min_stem_length` also counts as a whole string
+   literal (`"atp"` for `atp.rss`); `$(VAR)` and `${VAR}` in a path match anything; `Pods/`
+   and `Carthage/` at any depth, `*.docset/` contents and a few platform files
+   (`container-migration.plist`, `GoogleService-Info.plist`) are conventional.
+2. **Gate dependencies** (§7.1): a dependency `T → D` stays when a target that depends on `T`
+   imports `D` without declaring it and reaches `D` through no other declaration; a framework
+   a string literal names counts as used (`dlopen`).
+3. **Same module name in two targets** (§7.2, §13): an iOS and a macOS app that are both module
+   `NetNewsWire` merge in the shared index of a multi-build scan, and Periphery lost one
+   copy's calls, differently from run to run. Triage notes every finding in a type that a
+   target with the same module name also declares. Scanning each build alone and keeping
+   only findings every build that compiles the file reports would fix this at the source;
+   it needs per-build file coverage and was not done.
+4. **Builds** (§6): `builds[].for_testing: false` builds a scheme without its test targets
+   (NetNewsWire's macOS tests compile AppleScript against an installed app).

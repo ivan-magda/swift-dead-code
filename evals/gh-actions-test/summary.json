@@ -1,0 +1,21 @@
+{
+  "check": {
+    "findings": 0
+  },
+  "commit": "7e669e218e56bfcfee6755f4c9ebc517f7170da6",
+  "deletions_alive": 0,
+  "deletions_verified": 0,
+  "kind": "CocoaPods workspace",
+  "scan": {
+    "unused": 1
+  },
+  "seconds": {
+    "scan": 10
+  },
+  "verdicts": {
+    "AMBIGUOUS": 0,
+    "FALSE": 0,
+    "KEEP": 1,
+    "TRUE": 0
+  }
+}

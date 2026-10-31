@@ -1,0 +1,35 @@
+{
+  "check": {
+    "findings": 24,
+    "findings_before_tool_fix": 31
+  },
+  "commit": "65bab49f39d363ede083affc129b6dc5c6517a06",
+  "deletions_alive": 0,
+  "deletions_verified": 7,
+  "false_positives_flagged_by_triage": 5,
+  "kind": "XcodeGen (generated project committed) + local packages",
+  "scan": {
+    "assign_only": 3,
+    "test_only": 47,
+    "unused": 277,
+    "unused_imports": 1
+  },
+  "seconds": {
+    "check": 10,
+    "scan_six_schemes_incremental": 156
+  },
+  "verdicts": {
+    "AMBIGUOUS": 3,
+    "FALSE": 10,
+    "KEEP": 239,
+    "TRUE": 29,
+    "unlabeled": 20
+  },
+  "verdicts_note": "TRUE = 7 verified declarations + 21 test-target and extension dependencies + 1 stencil, the last 22 not applied; FALSE = MapLibreShim and five types only it uses (loaded with dlopen and NSClassFromString) + 4 projected values; KEEP = 237 TestablePreview markers + 2 Equatable fields; AMBIGUOUS = invalidHomeserverURL + 2 dependencies of @testable test bundles",
+  "verification": {
+    "build_for_testing": "all six schemes succeeded",
+    "unit_tests": 1267,
+    "unit_tests_failing": 58,
+    "unit_tests_failing_without_deletions": 58
+  }
+}

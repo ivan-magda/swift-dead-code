@@ -54,3 +54,12 @@ shows that the two choose the same candidates (18) and agree on them, not that r
 the fixture test `pruneRemovesUnusedImportsAndKeepsBorrowedOnes` covers removal and the
 restore of a borrowed import. A full `--all --modules deps` comparison (about an hour per
 tool) was not run.
+
+## After the Xcode evals
+
+The gate changed after this comparison: Run Script phases, short stems as whole string
+literals, build-setting variables in paths, dependencies a client reaches only through the
+target, and new conventional files. Rerun on 2026-10-31 with the final binary, `check --report`
+on the clone is still byte-identical to `scripts/check-dead-code.py --report` (the same four
+allowlisted files). The triage change (types a same-named module also declares) cannot fire on
+a package, whose module names are unique.

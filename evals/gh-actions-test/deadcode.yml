@@ -1,0 +1,9 @@
+# GhActionsTest: a SwiftUI app in a CocoaPods workspace below the repository root. Its one pod,
+# SwiftLint 0.50.1, ships a command-line tool and no module. Setup in the clone: `pod install`.
+project:
+  kind: xcode
+  path: GhActionsTest/GhActionsTest.xcworkspace
+  schemes: [GhActionsTest]
+  destination: "generic/platform=iOS Simulator"
+  # The pod's target says iOS 9.0; Xcode 27.1 builds iOS 15.0 and later. 16.2 is the app's own.
+  build_arguments: ["IPHONEOS_DEPLOYMENT_TARGET=16.2"]
