@@ -1,0 +1,24 @@
+{
+  "check": {
+    "findings": 3,
+    "findings_before_tool_fix": 5
+  },
+  "commit": "b7adfa0",
+  "deletions_alive": 0,
+  "deletions_verified": 0,
+  "kind": "CocoaPods workspace with a development pod",
+  "scan": {
+    "unused": 16
+  },
+  "verdicts": {
+    "AMBIGUOUS": 7,
+    "FALSE": 3,
+    "KEEP": 0,
+    "TRUE": 3,
+    "unlabeled": 8
+  },
+  "verdicts_note": "TRUE = 3 leftover bullet-image assets (not applied); FALSE = 2 .gitkeep files (fixed in the tool) + numberOfLines(), used by the unbuilt tests; AMBIGUOUS = 3 marker protocols and 4 conformances",
+  "verification": {
+    "builds": "library scheme markymark-iOS12.1 only; the example app's SwiftLint 0.28.1 build phase cannot load Xcode 27.1's sourcekitd"
+  }
+}

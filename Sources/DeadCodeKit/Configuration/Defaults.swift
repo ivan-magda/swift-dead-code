@@ -18,6 +18,9 @@ public enum Defaults {
     // Codecov reads it from the repository root.
     ".codecov.yml",
     "codecov.yml",
+    // Placeholders that keep an empty directory in git.
+    ".gitkeep",
+    ".keep",
     ".travis.yml",
     ".xcode-version",
     "AGENTS.md",

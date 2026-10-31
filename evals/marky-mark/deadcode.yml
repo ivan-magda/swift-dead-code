@@ -1,0 +1,18 @@
+# Marky-Mark: a Markdown library that its example app, a Today extension and the tests build as
+# a CocoaPods development pod, in a workspace below the repository root. Setup in the clone:
+# `pod install` in Example/.
+project:
+  kind: xcode
+  path: Example/markymark.xcworkspace
+  # The library's own scheme. CocoaPods splits the development pod by deployment target into
+  # markymark-iOS8.3 and markymark-iOS12.1, which compile the same sources. The example app's
+  # scheme runs the locked SwiftLint 0.28.1 as a build phase, which cannot load Xcode 27.1's
+  # sourcekitd and fails the build; skipping that phase would take a project change.
+  schemes: [markymark-iOS12.1]
+  destination: "generic/platform=iOS Simulator"
+  # The project targets iOS 8.3; Xcode 27.1 builds iOS 15.0 and later.
+  build_arguments: ["IPHONEOS_DEPLOYMENT_TARGET=15.0"]
+
+periphery:
+  # The library's public API is its contract with the apps that use it.
+  arguments: [--retain-public]
