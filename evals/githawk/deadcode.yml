@@ -1,0 +1,10 @@
+# GitHawk: a UIKit app in a CocoaPods workspace with development pods (Local Pods/) and its
+# Pods directory committed.
+project:
+  kind: xcode
+  path: Freetime.xcworkspace
+  schemes: [Freetime-AppCenter]
+  destination: "generic/platform=iOS Simulator"
+  # The app and its pods target iOS 11.0 and watchOS 4; Xcode 27.1 builds iOS 15.0 and
+  # watchOS 9.0 and later only.
+  build_arguments: ["IPHONEOS_DEPLOYMENT_TARGET=15.0", "WATCHOS_DEPLOYMENT_TARGET=9.0"]

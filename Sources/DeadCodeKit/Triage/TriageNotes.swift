@@ -55,6 +55,13 @@ struct TriageNotes {
     if finding.kind == "var.parameter", context?.isParameterizedTest == true {
       notes.append("argument of a parameterized @Test")
     }
+    if finding.hints.contains("redundantConformance") || finding.hints.contains("redundantProtocol")
+    {
+      notes.append(
+        "nothing uses it as the protocol: a marker for code generators (Sourcery) or runtime "
+          + "discovery keeps it"
+      )
+    }
     if finding.kind == "var.parameter", context?.typeText.hasPrefix("isolated ") == true {
       notes.append("isolated parameter: it runs the function on that actor, a use by effect")
     }

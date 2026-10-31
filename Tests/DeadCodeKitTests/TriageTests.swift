@@ -100,10 +100,17 @@ struct TriageTests {
     let production = all + [Self.finding(39, 6, "function.free", "makeStoreForTesting()")]
     let isolation = Self.finding(41, 14, "var.parameter", "isolation")
     let dismiss = Self.finding(51, 39, "var.instance", "dismiss")
+    let conformance = PeripheryFinding(
+      kind: "protocol",
+      name: "Codable",
+      location: "Sources/App/Main.swift:9:17",
+      ids: ["s:Codable"],
+      hints: ["redundantConformance"]
+    )
 
     // when
     let report = TriageReport(
-      all: (all + [isolation, dismiss]).shuffled(),
+      all: (all + [isolation, dismiss, conformance]).shuffled(),
       production: production + [isolation, dismiss],
       model: try project.load(),
       configuration: Configuration(),
@@ -137,6 +144,11 @@ struct TriageTests {
         "isolated parameter: it runs the function on that actor, a use by effect"
       ),
       (
+        "9:17 | protocol | `Codable`",
+        "nothing uses it as the protocol: a marker for code generators (Sourcery) or runtime "
+          + "discovery keeps it"
+      ),
+      (
         "51:39 | var.instance | `dismiss`",
         "@Environment nothing reads: usually a leftover, unless a comment makes its declaration "
           + "a workaround; check #if branches for platforms the scan did not build"
@@ -147,7 +159,7 @@ struct TriageTests {
       #expect(report.contains(row), "missing: \(row)")
     }
     #expect(report.contains("exposed to Objective-C: check selectors"))
-    #expect(report.contains("Unused declarations: 11. Test-only production declarations: 1."))
+    #expect(report.contains("Unused declarations: 12. Test-only production declarations: 1."))
   }
 
   @Test

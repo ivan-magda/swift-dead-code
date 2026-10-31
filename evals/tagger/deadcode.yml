@@ -1,0 +1,9 @@
+# Tagger: a UIKit app in a CocoaPods workspace (KeychainSwift, Alamofire), with its Pods
+# directory committed.
+project:
+  kind: xcode
+  path: Tagger.xcworkspace
+  schemes: [Tagger]
+  destination: "generic/platform=iOS Simulator"
+  # The app and its pods target iOS 9.0; Xcode 27.1 builds 15.0 and later only.
+  build_arguments: ["IPHONEOS_DEPLOYMENT_TARGET=15.0"]

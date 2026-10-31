@@ -8,7 +8,7 @@ import SwiftSyntax
 public final class StringMentions {
   /// File extensions whose text names classes, selectors or keys at runtime.
   public static let resourceExtensions: Set<String> = [
-    "intentdefinition", "plist", "storyboard", "strings", "xcstrings", "xib",
+    "intentdefinition", "plist", "sdef", "stencil", "storyboard", "strings", "xcstrings", "xib",
   ]
 
   private let root: URL

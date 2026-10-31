@@ -121,6 +121,7 @@ struct GateTests {
     try project.write(app + loader, to: "Shop/ShopApp.swift")
     try project.write("#!/bin/sh\n", to: ".githooks/pre-commit")
     try project.write("Commercial terms.\n", to: "LICENSE-COMMERCIAL")
+    try project.write("PODFILE CHECKSUM: 0\n", to: "Pods/Manifest.lock")
     _ = try project.git(["add", "--all"])
 
     // when
@@ -130,6 +131,7 @@ struct GateTests {
     #expect(!findings.contains(GateFinding(kind: .dependency, subject: "Shop Spare")))
     #expect(!findings.contains(GateFinding(kind: .file, subject: ".githooks/pre-commit")))
     #expect(!findings.contains(GateFinding(kind: .file, subject: "LICENSE-COMMERCIAL")))
+    #expect(!findings.contains(GateFinding(kind: .file, subject: "Pods/Manifest.lock")))
     #expect(findings.contains(GateFinding(kind: .file, subject: "docs/unused-mockup.png")))
   }
 
