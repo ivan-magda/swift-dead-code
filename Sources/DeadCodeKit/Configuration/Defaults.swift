@@ -15,6 +15,9 @@ public enum Defaults {
     ".swift-version",
     ".swiftformat",
     ".swiftlint.yml",
+    // Codecov reads it from the repository root.
+    ".codecov.yml",
+    "codecov.yml",
     ".travis.yml",
     ".xcode-version",
     "AGENTS.md",

@@ -104,7 +104,7 @@ public struct PeripheryScanner: Sendable {
   /// change the scan (it may set `strict`, `baseline` or `retain_public`).
   public static func writeConfiguration(to url: URL) throws {
     try TextFiles.write(
-      "# Written by swift-dead-code; options come from the command line.\n",
+      "# Written by swift-dead-code; options come from the command line in environment.txt.\n",
       to: url
     )
   }

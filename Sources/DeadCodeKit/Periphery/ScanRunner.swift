@@ -63,6 +63,7 @@ public struct ScanRunner: Sendable {
       )
     }
     let common = scanner.commonArguments(build: build, configFile: configFile)
+    let production = common + scanner.productionArguments()
     progress("Periphery, tests included")
     try scanner.scan(
       arguments: common,
@@ -72,12 +73,15 @@ public struct ScanRunner: Sendable {
     )
     progress("Periphery, test code excluded")
     try scanner.scan(
-      arguments: common + scanner.productionArguments(),
+      arguments: production,
       in: copy,
       output: output.appendingPathComponent("prod.json"),
       errors: output.appendingPathComponent("prod.err")
     )
-    try TextFiles.write(environment(), to: output.appendingPathComponent("environment.txt"))
+    try TextFiles.write(
+      environment(scans: [("tests included", common), ("test code excluded", production)]),
+      to: output.appendingPathComponent("environment.txt")
+    )
 
     let triage = TriageReport(
       all: try PeripheryFinding.read(output.appendingPathComponent("all.json")),
@@ -94,18 +98,24 @@ public struct ScanRunner: Sendable {
 // MARK: - Environment
 
 private extension ScanRunner {
-  /// The tool versions the scan depends on: results hold only for these.
-  func environment() -> String {
+  /// The tool versions the scan depends on, for which alone the results hold, and the
+  /// Periphery command lines it ran.
+  func environment(scans: [(label: String, arguments: [String])]) -> String {
     let commands: [(String, [String])] = [
       ("swift", ["--version"]),
       ("periphery", ["version"]),
       ("xcodebuild", ["-version"]),
     ]
-    return commands.map { executable, arguments in
-      let result = try? runner.run(Command(executable, arguments, in: model.root))
-      let text = (result?.standardOutput ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-      return "$ \(executable) \(arguments.joined(separator: " "))\n\(text)"
+    let versions =
+      commands.map { executable, arguments in
+        let result = try? runner.run(Command(executable, arguments, in: model.root))
+        let text = (result?.standardOutput ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return "$ \(executable) \(arguments.joined(separator: " "))\n\(text)"
+      }
+      .joined(separator: "\n") + "\n"
+    let runs = scans.map { label, arguments in
+      "# Periphery, \(label)\n$ periphery \(arguments.joined(separator: " "))\n"
     }
-    .joined(separator: "\n") + "\n"
+    return versions + runs.joined()
   }
 }

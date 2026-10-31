@@ -38,6 +38,9 @@ struct BaselineCommand: ParsableCommand {
         Output.print("\(path): \(count) findings")
         return 0
       }
+      if !FileManager.default.fileExists(atPath: baseline.url.path) {
+        Output.print("\(path) does not exist yet: every product-code finding counts as new.")
+      }
       let outcome = try baseline.check(findings)
       if !outcome.inTests.isEmpty {
         Output.print("\(outcome.inTests.count) findings in test code, listed but not checked:")

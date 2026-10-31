@@ -19,7 +19,7 @@ public struct StarterConfiguration: Sendable {
 
   public func text() -> String {
     var lines = [
-      "# swift-dead-code configuration. Every field is optional; see the README for all of them."
+      "# swift-dead-code configuration. Every field is optional; the tool's README lists them."
     ]
     switch model.kind {
     case .swiftPackage:

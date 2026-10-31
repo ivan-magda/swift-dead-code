@@ -116,8 +116,8 @@ struct TriageTests {
     ),
     (
       "9:17 | protocol | `Codable`",
-      "nothing uses it as the protocol: a marker for code generators (Sourcery) or runtime "
-        + "discovery keeps it"
+      "conformance to a protocol nothing uses as a type: a marker for code generators "
+        + "(Sourcery) or runtime discovery may keep it"
     ),
     (
       "51:39 | var.instance | `dismiss`",
@@ -173,6 +173,58 @@ struct TriageTests {
     }
     #expect(report.contains("exposed to Objective-C: check selectors"))
     #expect(report.contains("Unused declarations: 12. Test-only production declarations: 1."))
+  }
+
+  @Test
+  func privateHelpersAndCallsInsideTheirOwnBodyGetNoCallerOrWitnessNote() throws {
+    // given: printUsage() calls another module's printUsage(on:); the conformance hint carries
+    // Periphery's replacement.
+    let project = try FixtureProject.copy("GatePackage")
+    defer {
+      project.remove()
+    }
+    let source = """
+      import Foundation
+
+      final class Runner: NSObject {
+        private func printUsage() {
+          FileHandle.standardOutput.printUsage(on: "out")
+        }
+      }
+
+      extension Runner: Reporting {}
+      """
+    try project.write(source, to: "Sources/App/Main.swift")
+    let usage = Self.finding(4, 16, "function.method.instance", "printUsage()")
+    let conformance = PeripheryFinding(
+      kind: "protocol",
+      name: "Reporting",
+      location: "Sources/App/Main.swift:9:19",
+      ids: ["s:Reporting"],
+      hints: ["redundantConformance(replace with: 'Output')"]
+    )
+
+    // when
+    let report = TriageReport(
+      all: [usage, conformance],
+      production: [usage, conformance],
+      model: try project.load(),
+      configuration: Configuration(),
+      sourceRoot: project.root
+    )
+    .render()
+
+    // then
+    let usageRow = "| Sources/App/Main.swift:4:16 | function.method.instance | `printUsage()` | - |"
+    let conformanceNote =
+      "conformance to a protocol nothing uses as a type: a marker for code generators "
+      + "(Sourcery) or runtime discovery may keep it"
+    #expect(report.contains(usageRow))
+    #expect(
+      report.contains(
+        "| Sources/App/Main.swift:9:19 | protocol | `Reporting` | \(conformanceNote) |"
+      )
+    )
   }
 
   @Test

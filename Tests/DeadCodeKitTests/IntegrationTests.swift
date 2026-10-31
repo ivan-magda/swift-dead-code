@@ -147,6 +147,29 @@ struct DescribeAndInitTests {
   }
 
   @Test
+  func readsProductsAndExecutablesALegacyManifestNamesLikeTargets() throws {
+    // given: a tools-version 5.0 manifest names Kit, a dependency's product, like a target, and
+    // its executable's target is a regular one.
+    let project = try FixtureProject.copy("LegacyPackage")
+    defer {
+      project.remove()
+    }
+
+    // when
+    let model = try project.load()
+
+    // then
+    #expect(model.externalModules == ["Kit"])
+    #expect(model.target(named: "Tool")?.productType == .executable)
+    #expect(
+      model.target(named: "Tool")?.dependencies == [
+        TargetDependency(name: "Core", moduleNames: ["Core"], kind: .target),
+        TargetDependency(name: "Kit", moduleNames: ["Kit"], kind: .product),
+      ]
+    )
+  }
+
+  @Test
   func initPrintsAConfigurationTheLoaderAccepts() throws {
     // given
     let project = try FixtureProject.copy("GatePackage")

@@ -13,9 +13,12 @@ build passes.
 
 Run every command from the project root. `.deadcode.yml` there holds the project's settings:
 schemes, test support, allowlist, baseline path, contract documents. Without one, run
-`swift-dead-code init > .deadcode.yml`, fill in what it marks, and commit it. Keep output in a
-scratch directory outside the project, and reuse one directory per command so reruns build
-incrementally.
+`swift-dead-code init > .deadcode.yml` and fill it in: an Xcode project's schemes and
+`builds`, test support targets, `module_names` for a product whose modules have other names
+(an umbrella product such as `SwiftToolsSupport-auto`), and `periphery.arguments:
+[--retain-public]` for a library. Commit it in a cleanup; in an audit, leave it uncommitted.
+Keep output in a scratch directory outside the project, and reuse one directory per command so
+reruns build incrementally.
 
 | Command | Time | Finds |
 | --- | --- | --- |
@@ -27,7 +30,9 @@ incrementally.
 | `swift-dead-code describe` | seconds | the targets, test code and dependencies the tool sees |
 
 Read `describe` first on an unfamiliar project: if a target is missing, a test target counts
-as product code, or a module name is wrong, fix `.deadcode.yml` before trusting any finding.
+as product code, or a module name is wrong, fix `.deadcode.yml` (`test_support`,
+`module_names`, `project.schemes`) and run `describe` and `check` again before trusting any
+finding.
 For a library whose public API others use, set `periphery.arguments: [--retain-public]`:
 without it every public declaration the package itself does not call looks unused.
 `scan` and `prune-imports` build in a copy of the project and take a machine-wide lock: run
@@ -44,8 +49,11 @@ after a run without it: a failing test file makes the pruner keep a module every
 
 ## Modes
 
-**Quick scan** (audit, "find dead code"): `check --report` and `scan`. Report the triage
-grouped as in §2, marking findings the baseline check calls new. No edits.
+**Quick scan** (audit, "find dead code"): `check --report`, `scan`, and, when the project has a
+baseline file, `baseline OUT/all.json OUT/prod.json`; without one, every finding is new. Report
+the findings grouped by the rows of the §2 table, each with a verdict from §1 and its
+evidence, new ones marked. No edits besides an uncommitted `.deadcode.yml`: suggest allowlist
+and baseline entries instead of writing them.
 
 **Full cleanup** (remove): stages 1–6 below, on a feature branch.
 
@@ -76,6 +84,7 @@ check.
 | `@main`, App Intents, widgets, extension principal types | The system finds them | The target's Info.plist and extension point |
 | SwiftUI previews and their mock data | Design-time only | Whether the project keeps previews |
 | Property read through `$name` | Projected values index separately | The `$name` use the note names |
+| A protocol nothing uses as a type, and a row per conformance | A marker for code generators or runtime discovery, or an abstraction left with one conformer | Generator templates and runtime lookups; decide once for the protocol and its conformances |
 | Production declaration only tests reach | Seam, contract, or convenience | "Test-only code" below |
 | A type another target with the same module name also declares | The builds' shared index merged the two copies and lost one copy's calls | Callers in this file and in that target's copy |
 | Unused imports | Covers only modules Periphery indexed | `prune-imports` (§5) |

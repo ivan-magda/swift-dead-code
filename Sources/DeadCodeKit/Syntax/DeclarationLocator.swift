@@ -87,7 +87,14 @@ public final class SourceIndex {
       guard tokenLine != line else {
         continue
       }
-      users.insert(Self.enclosingFunctionName(of: Syntax(token)))
+      let function = Self.enclosingFunction(of: Syntax(token))
+      // A use inside the declaration itself, such as a call to an overload, is no user.
+      if let function,
+        file.converter.location(for: function.name.positionAfterSkippingLeadingTrivia).line == line
+      {
+        continue
+      }
+      users.insert(function?.name.text)
     }
     return users
   }
@@ -382,11 +389,11 @@ private extension SourceIndex {
 
   /// The function whose body holds the node. A mention in an initializer, accessor or
   /// property initializer has no function, so it counts as a use nobody flagged.
-  static func enclosingFunctionName(of node: Syntax) -> String? {
+  static func enclosingFunction(of node: Syntax) -> FunctionDeclSyntax? {
     var ancestor = node.parent
     while let current = ancestor {
       if let function = current.as(FunctionDeclSyntax.self) {
-        return function.name.text
+        return function
       }
       // Reaching the member boundary first means a property, accessor or initializer.
       if current.is(InitializerDeclSyntax.self) || current.is(MemberBlockItemSyntax.self) {

@@ -56,18 +56,24 @@ struct TriageNotes {
     if finding.kind == "var.parameter", context?.isParameterizedTest == true {
       notes.append("argument of a parameterized @Test")
     }
-    if finding.hints.contains("redundantConformance") || finding.hints.contains("redundantProtocol")
-    {
+    // Periphery reports the protocol and, as rows of their own, each conformance to it.
+    if finding.hints.contains(where: { $0.hasPrefix("redundantProtocol") }) {
       notes.append(
-        "nothing uses it as the protocol: a marker for code generators (Sourcery) or runtime "
-          + "discovery keeps it"
+        "protocol nothing uses as a type, listed with each conformance: a marker for code "
+          + "generators (Sourcery) or runtime discovery may keep it"
+      )
+    } else if finding.hints.contains(where: { $0.hasPrefix("redundantConformance") }) {
+      notes.append(
+        "conformance to a protocol nothing uses as a type: a marker for code generators "
+          + "(Sourcery) or runtime discovery may keep it"
       )
     }
     if finding.kind == "var.parameter", context?.typeText.hasPrefix("isolated ") == true {
       notes.append("isolated parameter: it runs the function on that actor, a use by effect")
     }
     if let context, let type = context.enclosingTypes.first {
-      notes += enclosingTypeNotes(finding, type: type)
+      let isPrivate = !Set(context.modifiers).isDisjoint(with: ["private", "fileprivate"])
+      notes += enclosingTypeNotes(finding, type: type, isPrivate: isPrivate)
     }
     if finding.kind == "var.parameter" && notes.isEmpty {
       notes.append(Self.parameterHint)
@@ -130,7 +136,11 @@ struct ModuleTwins {
 // MARK: - swift-claw Notes
 
 private extension TriageNotes {
-  func enclosingTypeNotes(_ finding: PeripheryFinding, type: EnclosingType) -> [String] {
+  func enclosingTypeNotes(
+    _ finding: PeripheryFinding,
+    type: EnclosingType,
+    isPrivate: Bool
+  ) -> [String] {
     var notes: [String] = []
     let name = type.name
     if finding.kind == "enumelement" && conforms(type, to: ["CaseIterable"], in: finding.path) {
@@ -148,8 +158,11 @@ private extension TriageNotes {
         "protocol requirement: check calls on conforming types and documented contracts"
       )
     }
-    // A protocol's own requirements get the note above; only implementations witness.
-    if finding.kind.hasPrefix("function") && type.kind != "protocol" && !type.inheritance.isEmpty {
+    // A protocol's own requirements get the note above; only implementations witness. A
+    // private member cannot override, and witnesses only a protocol private to its file.
+    if finding.kind.hasPrefix("function") && type.kind != "protocol" && !type.inheritance.isEmpty
+      && !isPrivate
+    {
       notes.append("may witness a requirement of: \(type.inheritance.joined(separator: ", "))")
     }
     return notes

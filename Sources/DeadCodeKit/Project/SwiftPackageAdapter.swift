@@ -41,6 +41,7 @@ public struct SwiftPackageAdapter: Sendable {
     }
     let manifestPath = Self.join(prefix, "Package.swift")
 
+    let names = PackageNames(manifest: manifest, configuration: configuration)
     var targets: [ProjectTarget] = []
     for target in manifest.targets where target.type != "binary" {
       let directory = try Self.directory(of: target, in: packageRoot)
@@ -51,7 +52,7 @@ public struct SwiftPackageAdapter: Sendable {
           directory: directory,
           sources: Self.sources(of: target, directory: directory, files: sourceFiles),
           placement: placement,
-          configuration: configuration
+          names: names
         )
       )
     }
@@ -121,8 +122,57 @@ struct DumpedPackage: Decodable {
     }
   }
 
+  /// A product; only executables matter, because before tools version 5.4 an executable's
+  /// target is a regular one.
+  struct Product: Decodable {
+    var targets: [String]
+    var isExecutable: Bool
+
+    init(from decoder: any Decoder) throws {
+      let container = try decoder.container(keyedBy: CodingKeys.self)
+      targets = try container.decodeIfPresent([String].self, forKey: .targets) ?? []
+      let type = try container.decodeIfPresent([String: JSONValue].self, forKey: .type) ?? [:]
+      isExecutable = type.keys.contains("executable")
+    }
+
+    private enum CodingKeys: String, CodingKey {
+      case targets
+      case type
+    }
+  }
+
   var name: String
   var targets: [Target]
+  var products: [Product]
+
+  init(from decoder: any Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    name = try container.decode(String.self, forKey: .name)
+    targets = try container.decode([Target].self, forKey: .targets)
+    products = try container.decodeIfPresent([Product].self, forKey: .products) ?? []
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case name
+    case targets
+    case products
+  }
+}
+
+/// What a name means in one manifest: a dependency's name is a target of the package or a
+/// product of a package it depends on, which `byName` can name too.
+struct PackageNames {
+  var targets: Set<String>
+  var executables: Set<String>
+  var testSupport: Set<String>
+  var moduleNames: [String: [String]]
+
+  init(manifest: DumpedPackage, configuration: Configuration) {
+    targets = Set(manifest.targets.map(\.name))
+    executables = Set(manifest.products.filter(\.isExecutable).flatMap(\.targets))
+    testSupport = Set(configuration.testSupport)
+    moduleNames = configuration.moduleNames
+  }
 }
 
 /// Just enough of an arbitrary JSON value to read manifest arrays.
@@ -163,16 +213,16 @@ private extension SwiftPackageAdapter {
     directory: String,
     sources: [String],
     placement: Placement,
-    configuration: Configuration
+    names: PackageNames
   ) -> ProjectTarget {
     let prefix = placement.prefix
     let dependencies = target.dependencies.compactMap { dependency in
-      Self.dependency(dependency, moduleNames: configuration.moduleNames)
+      Self.dependency(dependency, names: names)
     }
     let role: ProjectTarget.Role =
       if target.type == "test" {
         .test
-      } else if configuration.testSupport.contains(target.name) {
+      } else if names.testSupport.contains(target.name) {
         .testSupport
       } else {
         .product
@@ -180,7 +230,8 @@ private extension SwiftPackageAdapter {
     return ProjectTarget(
       name: target.name,
       role: role,
-      productType: Self.productType(of: target.type),
+      productType: target.type == "regular" && names.executables.contains(target.name)
+        ? .executable : Self.productType(of: target.type),
       sourceFiles: sources.filter { $0.hasSuffix(".swift") }.map { Self.join(prefix, $0) },
       directories: [Self.join(prefix, directory)],
       dependencies: dependencies,
@@ -246,13 +297,21 @@ private extension SwiftPackageAdapter {
 
   static func dependency(
     _ dependency: DumpedPackage.Dependency,
-    moduleNames: [String: [String]]
+    names: PackageNames
   ) -> TargetDependency? {
-    if let name = (dependency.byName.first ?? dependency.target.first)?.string {
+    let moduleNames = names.moduleNames
+    if let name = dependency.target.first?.string {
       return TargetDependency(
         name: name,
         moduleNames: Set([name] + (moduleNames[name] ?? [])),
         kind: .target
+      )
+    }
+    if let name = dependency.byName.first?.string {
+      return TargetDependency(
+        name: name,
+        moduleNames: Set([name] + (moduleNames[name] ?? [])),
+        kind: names.targets.contains(name) ? .target : .product
       )
     }
     let product = dependency.product
