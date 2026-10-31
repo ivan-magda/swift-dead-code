@@ -28,28 +28,40 @@ tool convention now), and files in `Technotes/`, `AppStore/`, `Appcasts/`, `buil
 `scripts/`, read by people and release tooling (`conventional_paths` in the configuration).
 All FALSE.
 
-## `scan` (474 unused declarations, iOS and macOS together)
+## `scan` (456 unused declarations, iOS and macOS, each build confirming)
 
-Counted on the second scan of the same build; each row is in one class only.
+Both apps are module `NetNewsWire`, so the scan gives each build its own index and keeps a
+finding of the combined index only when the builds confirm it (DESIGN.md §15.3): the combined
+index reported 699 findings with tests and the builds confirmed 673; without tests, 538 of 560.
+Counted on that final scan; each row is in one class only.
 
 | Class | Count | Verdict | Triage note |
 | --- | --- | --- | --- |
-| Unused parameters | 162 | not labeled one by one | "check the signature it must match" |
+| Unused parameters | 143 | not labeled one by one | "check the signature it must match" |
 | Protocol requirements | 9 | not labeled one by one | "protocol requirement" |
 | Conformances nothing uses as the protocol (`ScriptingAppDelegate`, `AppDelegateAppleEvents`, `Renamable`, `OAuthAccessTokenResponse`) | 9 | not labeled one by one | "conformance to a protocol nothing uses as a type: a marker …" |
-| Findings in a type both apps declare (19 in `AppDefaults`, one each in `AppDelegate`, `ErrorHandler`, `IconView`) | 22 | not labeled one by one: unreliable, see below | "declared again in NetNewsWire-iOS, also module NetNewsWire …" |
-| The proposed group | 13 | 11 TRUE, 2 AMBIGUOUS; the fourteenth, FALSE, is below | none, or "used only by flagged" |
-| Other declarations | 259 | not labeled one by one | various |
+| Findings in a type both apps declare (9 in `AppDefaults`, one each in `AppDelegate`, `ErrorHandler`, `IconView`) | 11 | not labeled one by one | "declared again in NetNewsWire-iOS, also module NetNewsWire …" |
+| The proposed group | 13 | 11 TRUE, 2 AMBIGUOUS (below) | none, or "used only by flagged" |
+| Other declarations | 271 | not labeled one by one | various |
 
-Both apps are module `NetNewsWire`, and both declare `FeedInspectorViewController`, whose
-`newArticleNotificationsEnabledChanged:` action has the same USR in each. The two builds share
-one index, and Periphery reported `showNotificationsDeniedError()`
-(`Mac/Inspector/FeedInspectorViewController.swift:199`) as unused although the macOS copy calls
-it at :86. A second scan of the same build listed it only among declarations that tests reach,
-so the outcome depends on the run. It was proposed for deletion before the researcher found the call;
-it was never applied. The triage note on the 22 rows comes from this case.
+The 26 findings the builds did not confirm include `Mac/Inspector/FeedInspectorViewController.swift:199`
+(below) and 13 rows of the iOS `AppDefaults`; the ones checked are alive
+(`timelineSortDirection` at `iOS/SceneCoordinator.swift:101`, `isFirstRun` at
+`iOS/SceneDelegate.swift:30`, `Assets.Images.todayFeed` at
+`Shared/SmartFeeds/TodayFeedDelegate.swift:24`). All 11 verified deletions are still reported,
+and so is macOS-only code under `#if` in shared packages (`KeyboardConstant` in RSCore).
 
-### The proposed group (14 declarations)
+### A live method proposed by the first run
+
+The first scans used one index for both builds. Both apps declare `FeedInspectorViewController`,
+whose `newArticleNotificationsEnabledChanged:` action has the same USR in each, and Periphery
+reported `showNotificationsDeniedError()` (`FeedInspectorViewController.swift:199`) as unused
+although the macOS copy calls it at :86; one scan listed it with tests, the next only without.
+It went to the researcher with the group below, came back NEEDED, and was never applied. The
+fix is the per-build confirmation above: the final combined index reported it again, and no
+build alone did, so the final scan does not list it.
+
+### The group sent to the researcher (14 declarations)
 
 | Declaration | Verdict | Evidence |
 | --- | --- | --- |

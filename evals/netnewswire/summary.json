@@ -5,12 +5,17 @@
   },
   "commit": "aea7795bcc0698ced6f28eba53da886eb6217e64",
   "deletions_alive": 0,
-  "deletions_proposed_alive": 1,
+  "deletions_proposed_alive": 0,
+  "deletions_proposed_alive_note": "the first scan, with one index for both builds, listed FeedInspectorViewController.swift:199, which the researcher found alive before it was applied; with per-build confirmation the final scan does not list it",
   "deletions_verified": 20,
   "kind": "xcodeproj, iOS and macOS apps, synchronized folders, 17 local packages",
   "scan": {
-    "unused": 474,
-    "unused_in_types_both_apps_declare": 22
+    "combined_with_tests": 699,
+    "combined_without_tests": 560,
+    "confirmed_with_tests": 673,
+    "confirmed_without_tests": 538,
+    "unused": 456,
+    "unused_in_types_both_apps_declare": 11
   },
   "seconds": {
     "check": 22,
@@ -21,11 +26,11 @@
     "FALSE": 5,
     "KEEP": 0,
     "TRUE": 21,
-    "unlabeled": 461
+    "unlabeled": 443
   },
-  "verdicts_note": "check (12 final + 4 fixed in the tool): TRUE = 9 files and assets (applied) + RSWeb -> RSParser (not applied); FALSE = 2 entitlements, atp.rss, RSCore -> RSCoreObjC, all fixed in the tool; AMBIGUOUS = 2 SyncDatabase dependencies. scan: TRUE = 11 applied declarations; FALSE = FeedInspectorViewController.swift:199, proposed and found alive by the researcher before it was applied; AMBIGUOUS = Account.swift:1383/1397; the other 461 rows are not labeled one by one",
+  "verdicts_note": "check (12 final + 4 fixed in the tool): TRUE = 9 files and assets (applied) + RSWeb -> RSParser (not applied); FALSE = 2 entitlements, atp.rss, RSCore -> RSCoreObjC, all fixed in the tool; AMBIGUOUS = 2 SyncDatabase dependencies. scan (final): TRUE = 11 applied declarations; AMBIGUOUS = Account.swift:1383/1397; FALSE = FeedInspectorViewController.swift:199 from the first scan; the other 443 rows are not labeled one by one",
   "verification": {
-    "account_tests": "crash in AppConfig.swift:13 with and without the deletions",
+    "account_tests": "xcodebuild AccountTests: 34 Swift Testing + 61 XCTest passed with and without the deletions",
     "ios_build": "succeeded",
     "ios_tests": 5,
     "mac_build": "succeeded",

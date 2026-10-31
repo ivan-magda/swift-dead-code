@@ -19,6 +19,7 @@ The generalized tool must give swift-claw's findings from configuration alone
 | `check-periphery-baseline.py all.json prod.json` | `swift-dead-code baseline all.json prod.json` | stdout and stderr byte-identical; both exit 0 (33 test-code findings listed) |
 | `check-periphery-baseline.py --write` | `swift-dead-code baseline --write` | the same 91 entries; only the `#` header differs |
 | `prune_imports.py --all --modules Yams,UnixSignals,ArgumentParser,MCP` | `swift-dead-code prune-imports --all --modules ...` | identical: "0 of 18 candidate imports are removable", byte-identical (empty) patch; both exit 0 |
+| `prune_imports.py --all --modules deps` | `swift-dead-code prune-imports --all --modules deps` | identical: 15 modules, the same per-module lines, "0 of 189 candidate imports are removable", empty patches; both exit 0 |
 | `prune_imports.py --check-only` on 3 files in 3 targets | `swift-dead-code prune-imports --check-only` on the same files | identical output ("No listed file relies on another file's imports."); both exit 0 |
 
 Timing on this machine: the original scan took 301 s; `scan` took 371 s, including the rsync
@@ -52,8 +53,14 @@ prune; 270 s and 238 s for `--check-only` on `MessageRouter.swift`, `DoctorComma
 and `MCPCatalogResolver.swift`. This subset finds nothing removable in either tool, so it
 shows that the two choose the same candidates (18) and agree on them, not that removal works;
 the fixture test `pruneRemovesUnusedImportsAndKeepsBorrowedOnes` covers removal and the
-restore of a borrowed import. A full `--all --modules deps` comparison (about an hour per
-tool) was not run.
+restore of a borrowed import.
+
+The full repository-wide pass, `--all --modules deps`, ran on 2026-10-31 with the final binary,
+one tool after the other, each reusing its work directory from the subset run (GitHub was
+resetting connections, so fresh checkouts could not be fetched). Both took about 15 minutes
+(922 s and 915 s), tried the same 15 modules with the same per-module counts (for example
+"GRDB: 0 removable, 79 needed"), printed the same summary, "0 of 189 candidate imports are
+removable", wrote empty patches and exited 0.
 
 ## After the Xcode evals
 

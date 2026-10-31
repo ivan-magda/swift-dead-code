@@ -199,8 +199,9 @@ How the checks decide:
   `periphery.arguments`. Results hold only for what was built; `builds` scans several
   platforms or configurations into one index, and a declaration any of them uses stays.
   Targets that share a module name, such as an iOS and a macOS app both named after the
-  product, merge in that index: Periphery can lose one copy's calls, differently from run to
-  run, so findings in a type both declare carry a note and need a check by hand.
+  product, would merge in that index, where Periphery can lose one copy's calls: such
+  projects get one index per build instead, and a finding stays only when every build whose
+  index holds the declaration reports it. Findings in a type both declare still carry a note.
 
 ## The agent skill
 

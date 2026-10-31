@@ -538,10 +538,16 @@ knowledge; `DECISIONS.md` has the reasons and rollbacks.
    imports `D` without declaring it and reaches `D` through no other declaration; a framework
    a string literal names counts as used (`dlopen`).
 3. **Same module name in two targets** (§7.2, §13): an iOS and a macOS app that are both module
-   `NetNewsWire` merge in the shared index of a multi-build scan, and Periphery lost one
-   copy's calls, differently from run to run. Triage notes every finding in a type that a
-   target with the same module name also declares. Scanning each build alone and keeping
-   only findings every build that compiles the file reports would fix this at the source;
-   it needs per-build file coverage and was not done.
+   `NetNewsWire` merged in the shared index of a multi-build scan, and Periphery lost one
+   copy's calls, differently from run to run; a live method was proposed for deletion. When
+   targets share a module name and there are several builds, each build now gets its own
+   DerivedData and index store. Periphery runs on all stores together, as before, and on each
+   alone, and `all.json`/`prod.json` keep a combined finding only when some build reports it and
+   every build whose index records hold its USR reports it too: a build that indexed the
+   declaration and did not report it uses it, and a build that never compiled it (code under
+   `#if os(macOS)` in an iOS build) has no say. Records are searched as bytes for the USRs.
+   Triage still notes findings in a type a same-named module declares: a twin's own copy can
+   share a USR, and a single build with both twins (an iOS and a watchOS framework in one
+   scheme) has only one index.
 4. **Builds** (§6): `builds[].for_testing: false` builds a scheme without its test targets
    (NetNewsWire's macOS tests compile AppleScript against an installed app).

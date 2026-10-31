@@ -86,7 +86,7 @@ check.
 | Property read through `$name` | Projected values index separately | The `$name` use the note names |
 | A protocol nothing uses as a type, and a row per conformance | A marker for code generators or runtime discovery, or an abstraction left with one conformer | Generator templates and runtime lookups; decide once for the protocol and its conformances |
 | Production declaration only tests reach | Seam, contract, or convenience | "Test-only code" below |
-| A type another target with the same module name also declares | The builds' shared index merged the two copies and lost one copy's calls | Callers in this file and in that target's copy |
+| A type another target with the same module name also declares | Two copies merged in one index, which loses one copy's calls; `scan` confirms per build, but a copy that shares a USR or a scheme building both twins still merges | Callers in this file and in that target's copy |
 | Unused imports | Covers only modules Periphery indexed | `prune-imports` (§5) |
 
 **Test-only code.** A production declaration that a test calls is KEEP unless the only tests

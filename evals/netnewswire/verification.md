@@ -82,11 +82,12 @@ In the verification clone, with a separate DerivedData, `CODE_SIGNING_ALLOWED=NO
 | iOS tests | `xcodebuild test-without-building -scheme NetNewsWire-iOS` | 5 tests in 2 suites passed after group 1 (iPhone 17) and after both (iPhone 17 Pro). After both, the iPhone 17 simulator refused to launch the app ("Application failed preflight checks", `Busy`) three times, also after a shutdown; the same build passed on iPhone 17 Pro |
 | RSParser | `swift test --package-path Modules/RSParser --scratch-path <scratch>` | 330 Swift Testing tests and 26 XCTest tests passed, both times |
 | ArticlesDatabase | same, `Modules/ArticlesDatabase` | 19 tests passed, both times |
-| Account | same, `Modules/Account` | crashes in both clones: `RSCore/AppConfig.swift:13: Fatal error` (`Bundle.main` has no `CFBundleExecutable` under `swift test`). Before the crash, 14 tests passed after group 1 and 13 after both; the clone without deletions passed 14 in three runs. The difference is `responsesRegisteredHereAreInvisibleUnderAnotherTestID()`, which runs in parallel, was still running when the process crashed, and reads no fixture |
+| Account | `xcodebuild test -scheme AccountTests -destination 'platform=macOS,arch=arm64'` in `Modules/Account` | 34 Swift Testing tests and 61 XCTest tests passed, with both groups applied and in the clone without them. Under `swift test` the same tests crash in both clones at `RSCore/AppConfig.swift:13` (`Bundle.main` has no `CFBundleExecutable` there), so that runner is not used |
 
 The macOS tests are not built: they compile AppleScript against the dictionary of an installed
 NetNewsWire, which this machine does not have (the reason for `for_testing: false` in the
 configuration).
 
-Nothing applied turned out alive. One proposed declaration did: see the FALSE row in
-[`labels.md`](labels.md).
+Nothing applied turned out alive. One declaration the first scan listed and I sent to the
+researcher was alive; it was not applied, and the final scan no longer lists it (see
+[`labels.md`](labels.md)).
