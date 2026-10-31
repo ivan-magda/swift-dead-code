@@ -71,19 +71,25 @@ struct GateTests {
 
   @Test
   func aDependencyAClientImportsWithoutDeclaringItStays() throws {
-    // given: App imports Base, which it gets only through Kit; Tool declares Core itself.
+    // given: App imports Base, which it gets only through Kit; Tool declares Core itself;
+    // Suite imports Parser, which it gets through Feed's declaration too.
     let project = try FixtureProject.copy("GatePackage")
     defer {
       project.remove()
     }
-    let imports = ["App": "import Kit\nimport Base\n", "Tool": "import Lib\nimport Core\n"]
-    for name in ["App", "Kit", "Base", "Tool", "Lib", "Core"] {
-      try project.write(imports[name] ?? "import Foundation\n", to: "\(name)/\(name).swift")
-    }
+    let imports = [
+      "App": "import Kit\nimport Base\n", "Tool": "import Lib\nimport Core\n",
+      "Suite": "import Feed\nimport Parser\n", "Feed": "import Web\nimport Parser\n",
+    ]
     let dependencies = [
       "App": ["Kit"], "Kit": ["Base"], "Tool": ["Lib", "Core"], "Lib": ["Core"],
+      "Suite": ["Feed"], "Feed": ["Web", "Parser"], "Web": ["Parser"],
     ]
-    let targets = ["App", "Kit", "Base", "Tool", "Lib", "Core"].map { name in
+    let names = ["App", "Kit", "Base", "Tool", "Lib", "Core", "Suite", "Feed", "Web", "Parser"]
+    for name in names {
+      try project.write(imports[name] ?? "import Foundation\n", to: "\(name)/\(name).swift")
+    }
+    let targets = names.map { name in
       ProjectTarget(
         name: name,
         role: .product,
@@ -103,6 +109,7 @@ struct GateTests {
     // then
     #expect(!findings.contains(GateFinding(kind: .dependency, subject: "Kit Base")))
     #expect(findings.contains(GateFinding(kind: .dependency, subject: "Lib Core")))
+    #expect(findings.contains(GateFinding(kind: .dependency, subject: "Web Parser")))
   }
 
   @Test

@@ -6,7 +6,7 @@ import Foundation
 /// `#externalMacro(module:)` counts as a use of its module, and an Objective-C source's
 /// `@import` or `#import <Module/...>` counts too. Plugin targets are skipped: their
 /// dependencies are tools they run, never modules they import. A dependency also stays when a
-/// target that depends on this one imports it without declaring it: it gets the module here.
+/// target that depends on this one imports it without declaring it and has no other way to it.
 struct DependencyCheck {
   let model: ProjectModel
 
@@ -53,30 +53,65 @@ private extension DependencyCheck {
   }
 
   /// Whether a target that depends on `target`, directly or through others, imports the
-  /// dependency without declaring it, so that it gets the module through `target`.
+  /// dependency without declaring it and reaches it only through `target`.
   func passesOn(
     _ dependency: TargetDependency,
     of target: ProjectTarget,
     imports: [String: Set<String>]
   ) -> Bool {
+    dependents(of: target).contains { client in
+      !(imports[client.name] ?? []).isDisjoint(with: dependency.moduleNames)
+        && !Self.declares(client, dependency)
+        && !reaches(dependency, from: client, avoiding: target)
+    }
+  }
+
+  /// The targets that depend on `target`, directly or through others.
+  func dependents(of target: ProjectTarget) -> [ProjectTarget] {
     var modules = [target.moduleName]
     var visited: Set<String> = [target.name]
+    var dependents: [ProjectTarget] = []
     while let module = modules.popLast() {
-      for client in model.targets where !visited.contains(client.name) {
-        guard client.dependencies.contains(where: { $0.moduleNames.contains(module) }) else {
-          continue
-        }
+      for client in model.targets
+      where !visited.contains(client.name)
+        && client.dependencies.contains(where: { $0.moduleNames.contains(module) })
+      {
         visited.insert(client.name)
-        let declares = client.dependencies.contains { declared in
-          !declared.moduleNames.isDisjoint(with: dependency.moduleNames)
-        }
-        if !declares, !(imports[client.name] ?? []).isDisjoint(with: dependency.moduleNames) {
-          return true
-        }
+        dependents.append(client)
         modules.append(client.moduleName)
       }
     }
+    return dependents
+  }
+
+  /// Whether a target that `client` depends on, directly or through others, declares the
+  /// dependency; `avoided`'s own declaration does not count.
+  func reaches(
+    _ dependency: TargetDependency,
+    from client: ProjectTarget,
+    avoiding avoided: ProjectTarget
+  ) -> Bool {
+    var stack = [client]
+    var visited: Set<String> = [client.name]
+    while let current = stack.popLast() {
+      for declared in current.dependencies {
+        for next in model.targets
+        where !visited.contains(next.name) && declared.moduleNames.contains(next.moduleName) {
+          visited.insert(next.name)
+          if next.name != avoided.name, Self.declares(next, dependency) {
+            return true
+          }
+          stack.append(next)
+        }
+      }
+    }
     return false
+  }
+
+  static func declares(_ target: ProjectTarget, _ dependency: TargetDependency) -> Bool {
+    target.dependencies.contains { declared in
+      !declared.moduleNames.isDisjoint(with: dependency.moduleNames)
+    }
   }
 }
 
