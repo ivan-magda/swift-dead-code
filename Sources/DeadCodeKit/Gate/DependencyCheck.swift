@@ -5,13 +5,37 @@ import Foundation
 /// Imports count in every `#if` branch, so a dependency used only on another platform stays.
 /// `#externalMacro(module:)` counts as a use of its module, and an Objective-C source's
 /// `@import` or `#import <Module/...>` counts too. Plugin targets are skipped: their
-/// dependencies are tools they run, never modules they import.
+/// dependencies are tools they run, never modules they import. A dependency also stays when a
+/// target that depends on this one imports it without declaring it: it gets the module here.
 struct DependencyCheck {
   let model: ProjectModel
 
   func findings() -> Set<GateFinding> {
     var findings: Set<GateFinding> = []
+    let imports = importsByTarget()
+    for target in model.targets where target.productType != .plugin {
+      let imported = imports[target.name] ?? []
+      for dependency in target.dependencies
+      where dependency.moduleNames.isDisjoint(with: imported)
+        && !(dependency.kind == .target && namesInStrings(dependency, of: target))
+        && !passesOn(dependency, of: target, imports: imports)
+      {
+        findings.insert(
+          GateFinding(kind: .dependency, subject: "\(target.name) \(dependency.name)")
+        )
+      }
+    }
+    return findings
+  }
+}
+
+// MARK: - Dependents
+
+private extension DependencyCheck {
+  /// The modules each target imports, by target name.
+  func importsByTarget() -> [String: Set<String>] {
     var cache: [String: Set<String>] = [:]
+    var imports: [String: Set<String>] = [:]
     for target in model.targets where target.productType != .plugin {
       var imported: Set<String> = []
       for path in target.sourceFiles + target.otherSourceFiles {
@@ -23,16 +47,36 @@ struct DependencyCheck {
         cache[path] = modules
         imported.formUnion(modules)
       }
-      for dependency in target.dependencies
-      where dependency.moduleNames.isDisjoint(with: imported)
-        && !(dependency.kind == .target && namesInStrings(dependency, of: target))
-      {
-        findings.insert(
-          GateFinding(kind: .dependency, subject: "\(target.name) \(dependency.name)")
-        )
+      imports[target.name] = imported
+    }
+    return imports
+  }
+
+  /// Whether a target that depends on `target`, directly or through others, imports the
+  /// dependency without declaring it, so that it gets the module through `target`.
+  func passesOn(
+    _ dependency: TargetDependency,
+    of target: ProjectTarget,
+    imports: [String: Set<String>]
+  ) -> Bool {
+    var modules = [target.moduleName]
+    var visited: Set<String> = [target.name]
+    while let module = modules.popLast() {
+      for client in model.targets where !visited.contains(client.name) {
+        guard client.dependencies.contains(where: { $0.moduleNames.contains(module) }) else {
+          continue
+        }
+        visited.insert(client.name)
+        let declares = client.dependencies.contains { declared in
+          !declared.moduleNames.isDisjoint(with: dependency.moduleNames)
+        }
+        if !declares, !(imports[client.name] ?? []).isDisjoint(with: dependency.moduleNames) {
+          return true
+        }
+        modules.append(client.moduleName)
       }
     }
-    return findings
+    return false
   }
 }
 

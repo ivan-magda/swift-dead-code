@@ -77,6 +77,7 @@ check.
 | SwiftUI previews and their mock data | Design-time only | Whether the project keeps previews |
 | Property read through `$name` | Projected values index separately | The `$name` use the note names |
 | Production declaration only tests reach | Seam, contract, or convenience | "Test-only code" below |
+| A type another target with the same module name also declares | The builds' shared index merged the two copies and lost one copy's calls | Callers in this file and in that target's copy |
 | Unused imports | Covers only modules Periphery indexed | `prune-imports` (§5) |
 
 **Test-only code.** A production declaration that a test calls is KEEP unless the only tests

@@ -179,13 +179,17 @@ How the checks decide:
   `@import` and `#import <Module/...>` count. Xcode app extensions, apps and bundles are
   embedded rather than imported, so they are not checked; neither are plugin targets. A
   framework target that a string literal of the dependent target names counts too: that is
-  how an embedded, unlinked framework is loaded with `dlopen` or `NSClassFromString`.
+  how an embedded, unlinked framework is loaded with `dlopen` or `NSClassFromString`. A
+  dependency also stays when a target that depends on this one, directly or through others,
+  imports it without declaring it: that target gets the module through this one.
 - **Files.** A tracked file is used when another tracked text file contains its stem (four
-  characters or more), its whole name, or a pattern such as `results/run-*.md` that matches
-  it. `@2x`, `~ipad` and `~dark` variants count by their base name. Project membership
-  (`project.pbxproj`) is not a use; build settings such as `INFOPLIST_FILE` and xcconfig
-  files are. Swift files no target compiles are candidates too, except inside nested packages
-  and projects.
+  characters or more), its whole name, a string literal that is exactly a shorter stem
+  (`"atp"` in `url(forResource: "atp", withExtension: "rss")`), or a pattern such as
+  `results/run-*.md` that matches it; `$(VAR)` and `${VAR}` in a path match anything.
+  `@2x`, `~ipad` and `~dark` variants count by their base name. Project membership
+  (`project.pbxproj`) is not a use; build settings such as `INFOPLIST_FILE`, xcconfig files,
+  and Run Script phases' scripts and input and output paths are. Swift files no target
+  compiles are candidates too, except inside nested packages and projects.
 - **Assets.** An `imageset`, `colorset`, `symbolset` or `dataset` is used when a file outside
   asset catalogs names it, the identifier Xcode generates for it (`my-icon` → `myIcon`), or
   the part of its name before a digit, `-` or `_`, which catches names code builds at runtime.
@@ -194,6 +198,9 @@ How the checks decide:
   configuration: a project's `.periphery.yml` is ignored, so move its options to
   `periphery.arguments`. Results hold only for what was built; `builds` scans several
   platforms or configurations into one index, and a declaration any of them uses stays.
+  Targets that share a module name, such as an iOS and a macOS app both named after the
+  product, merge in that index: Periphery can lose one copy's calls, differently from run to
+  run, so findings in a type both declare carry a note and need a check by hand.
 
 ## The agent skill
 

@@ -68,10 +68,12 @@ public enum Defaults {
     "**/Pods/**",
     ".gitlab/",
     "fastlane/",
-    // SwiftPM's Xcode metadata, Xcode Cloud scripts and Settings bundles, at any depth.
+    // SwiftPM's Xcode metadata, Xcode Cloud scripts, Settings bundles and documentation sets,
+    // at any depth.
     "**/.swiftpm/**",
     "**/ci_scripts/**",
     "**/Settings.bundle/**",
+    "**/*.docset/**",
   ]
 
   /// Files whose mentions keep nothing alive, besides the configuration and the baseline.

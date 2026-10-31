@@ -70,6 +70,42 @@ struct GateTests {
   }
 
   @Test
+  func aDependencyAClientImportsWithoutDeclaringItStays() throws {
+    // given: App imports Base, which it gets only through Kit; Tool declares Core itself.
+    let project = try FixtureProject.copy("GatePackage")
+    defer {
+      project.remove()
+    }
+    let imports = ["App": "import Kit\nimport Base\n", "Tool": "import Lib\nimport Core\n"]
+    for name in ["App", "Kit", "Base", "Tool", "Lib", "Core"] {
+      try project.write(imports[name] ?? "import Foundation\n", to: "\(name)/\(name).swift")
+    }
+    let dependencies = [
+      "App": ["Kit"], "Kit": ["Base"], "Tool": ["Lib", "Core"], "Lib": ["Core"],
+    ]
+    let targets = ["App", "Kit", "Base", "Tool", "Lib", "Core"].map { name in
+      ProjectTarget(
+        name: name,
+        role: .product,
+        productType: .framework,
+        sourceFiles: ["\(name)/\(name).swift"],
+        dependencies: (dependencies[name] ?? []).map { dependency in
+          TargetDependency(name: dependency, moduleNames: [dependency], kind: .target)
+        },
+        manifestPath: "Package.swift"
+      )
+    }
+    let model = ProjectModel(kind: .swiftPackage, root: project.root, targets: targets)
+
+    // when
+    let findings = try Gate(model: model, configuration: Configuration()).findings()
+
+    // then
+    #expect(!findings.contains(GateFinding(kind: .dependency, subject: "Kit Base")))
+    #expect(findings.contains(GateFinding(kind: .dependency, subject: "Lib Core")))
+  }
+
+  @Test
   func untrackedSwiftFilesCountAsImports() throws {
     // given: SwiftPM compiles an untracked file in a target directory too.
     let project = try FixtureProject.copy("GatePackage")
@@ -86,8 +122,33 @@ struct GateTests {
   }
 
   @Test
+  func aShortStemCountsAsAWholeStringLiteral() throws {
+    // given: code loads atp.rss by its stem and extension; "abc" is only part of a literal.
+    let project = try FixtureProject.copy("GatePackage")
+    defer {
+      project.remove()
+    }
+    try project.write("<rss/>", to: "docs/atp.rss")
+    try project.write("<rss/>", to: "docs/abc.rss")
+    let code = """
+      let feed = Bundle.main.url(forResource: "atp", withExtension: "rss")
+      let label = "abc feed"
+      """
+    try project.write(code, to: "Sources/App/Feeds.swift")
+    _ = try project.git(["add", "--all"])
+
+    // when
+    let findings = try Gate(model: try project.load(), configuration: Configuration()).findings()
+
+    // then
+    #expect(!findings.contains(GateFinding(kind: .file, subject: "docs/atp.rss")))
+    #expect(findings.contains(GateFinding(kind: .file, subject: "docs/abc.rss")))
+  }
+
+  @Test
   func wildcardsAndVariantSuffixesCountAsMentions() throws {
-    // given: DocC finds `~dark` variants by name, and a README may name files by pattern.
+    // given: DocC finds `~dark` variants by name, a README may name files by pattern, and a
+    // build setting picks a file by a variable.
     let project = try FixtureProject.copy("GatePackage")
     defer {
       project.remove()
@@ -95,6 +156,9 @@ struct GateTests {
     try project.write("dark", to: "docs/architecture-diagram~dark.png")
     try project.write("run", to: "docs/results/run-2026-10-30.md")
     try project.write("Results are in docs/results/run-*.md.\n", to: "CONTRIBUTING.md")
+    try project.write("<plist/>", to: "Config/Shop-dev.entitlements")
+    let setting = "CODE_SIGN_ENTITLEMENTS = Config/Shop$(DEVELOPER_ENTITLEMENTS).entitlements\n"
+    try project.write(setting, to: "Config/Shop.xcconfig")
     _ = try project.git(["add", "--all"])
 
     // when
@@ -103,8 +167,10 @@ struct GateTests {
     // then
     let variant = GateFinding(kind: .file, subject: "docs/architecture-diagram~dark.png")
     let matched = GateFinding(kind: .file, subject: "docs/results/run-2026-10-30.md")
+    let selected = GateFinding(kind: .file, subject: "Config/Shop-dev.entitlements")
     #expect(!findings.contains(variant))
     #expect(!findings.contains(matched))
+    #expect(!findings.contains(selected))
     #expect(findings.contains(GateFinding(kind: .file, subject: "docs/orphan-note.txt")))
   }
 

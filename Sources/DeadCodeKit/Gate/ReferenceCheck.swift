@@ -93,11 +93,21 @@ private extension ReferenceCheck {
         && !Self.isInsideProjectBundle(path)
         && !(Self.isSource(path) && nestedProjects.contains { path.hasPrefix($0 + "/") })
     }
-    let terms = candidates.map(searchTerm)
-    var mentioned = mentionedTerms(
-      terms,
-      owners: candidates.map { [$0] },
-      sources: sources
+    var terms: [String] = []
+    var candidateOfTerm: [Int] = []
+    for (index, path) in candidates.enumerated() {
+      for term in searchTerms(path) {
+        terms.append(term)
+        candidateOfTerm.append(index)
+      }
+    }
+    var mentioned = Set(
+      mentionedTerms(
+        terms,
+        owners: candidateOfTerm.map { [candidates[$0]] },
+        sources: sources
+      )
+      .map { candidateOfTerm[$0] }
     )
     let patterns = Self.wildcardMentions(in: sources)
     for index in candidates.indices where !mentioned.contains(index) {
@@ -132,6 +142,10 @@ private extension ReferenceCheck {
     pattern: #"[A-Za-z0-9_.\-/]*\*[A-Za-z0-9_.*\-/]*"#
   )
 
+  /// A build setting or environment variable, such as `$(DEVELOPER_ENTITLEMENTS)`: in a path it
+  /// stands for any text.
+  static let variableReference = try? NSRegularExpression(pattern: #"\$[({][A-Za-z0-9_:]+[)}]"#)
+
   /// The file patterns the sources name; a pattern needs four literal characters, so `*.md`
   /// or `*` alone mentions nothing.
   static func wildcardMentions(in sources: [MentionSource]) -> [WildcardMention] {
@@ -139,8 +153,18 @@ private extension ReferenceCheck {
       return []
     }
     var patterns: Set<String> = []
-    for source in sources where source.text.contains("*") {
-      let text = source.text
+    for source in sources {
+      var text = source.text
+      if let variables = variableReference, text.contains("$(") || text.contains("${") {
+        text = variables.stringByReplacingMatches(
+          in: text,
+          range: NSRange(text.startIndex..., in: text),
+          withTemplate: "*"
+        )
+      }
+      guard text.contains("*") else {
+        continue
+      }
       for match in expression.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
         guard let range = Range(match.range, in: text) else {
           continue
@@ -182,14 +206,18 @@ private extension ReferenceCheck {
     SourceLanguages.compiledExtensions.contains((path as NSString).pathExtension)
   }
 
-  /// The stem, so code that builds a resource name from parts still counts; the whole name
-  /// when the stem is too short to be specific.
-  func searchTerm(_ path: String) -> String {
+  /// The stem, so code that builds a resource name from parts still counts. A stem too short
+  /// to be specific counts as the whole name, or as a whole string literal such as `"atp"` in
+  /// `url(forResource: "atp", withExtension: "rss")`.
+  func searchTerms(_ path: String) -> [String] {
     let name = (path as NSString).lastPathComponent
     let stem = Self.withoutVariantSuffixes(
       String(name.split(separator: ".", omittingEmptySubsequences: false).first ?? "")
     )
-    return stem.count >= configuration.check.minimumStemLength ? stem : name
+    if stem.count >= configuration.check.minimumStemLength {
+      return [stem]
+    }
+    return stem.isEmpty ? [name] : [name, "\"\(stem)\""]
   }
 
   /// `icon@2x~ipad` and `diagram~dark` are variants that code and docs name by their base:
