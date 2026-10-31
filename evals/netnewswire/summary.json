@@ -1,0 +1,35 @@
+{
+  "check": {
+    "findings": 12,
+    "findings_before_tool_fix": 16
+  },
+  "commit": "aea7795bcc0698ced6f28eba53da886eb6217e64",
+  "deletions_alive": 0,
+  "deletions_proposed_alive": 1,
+  "deletions_verified": 20,
+  "kind": "xcodeproj, iOS and macOS apps, synchronized folders, 17 local packages",
+  "scan": {
+    "unused": 474,
+    "unused_in_types_both_apps_declare": 22
+  },
+  "seconds": {
+    "check": 22,
+    "scan_mac_build_after_ios": 49
+  },
+  "verdicts": {
+    "AMBIGUOUS": 4,
+    "FALSE": 5,
+    "KEEP": 0,
+    "TRUE": 21,
+    "unlabeled": 461
+  },
+  "verdicts_note": "check (12 final + 4 fixed in the tool): TRUE = 9 files and assets (applied) + RSWeb -> RSParser (not applied); FALSE = 2 entitlements, atp.rss, RSCore -> RSCoreObjC, all fixed in the tool; AMBIGUOUS = 2 SyncDatabase dependencies. scan: TRUE = 11 applied declarations; FALSE = FeedInspectorViewController.swift:199, proposed and found alive by the researcher before it was applied; AMBIGUOUS = Account.swift:1383/1397; the other 461 rows are not labeled one by one",
+  "verification": {
+    "account_tests": "crash in AppConfig.swift:13 with and without the deletions",
+    "ios_build": "succeeded",
+    "ios_tests": 5,
+    "mac_build": "succeeded",
+    "mac_tests": "not built: AppleScript tests need an installed app",
+    "package_tests": "RSParser 330 + 26, ArticlesDatabase 19"
+  }
+}

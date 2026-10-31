@@ -44,8 +44,11 @@ it proposes no live code for deletion, and that the project needs nothing but a
 | [swift-claw](swift-claw/parity.md) | SwiftPM | parity with the scripts the tool replaces |
 | [swift-ssrf-guard](swift-ssrf-guard/labels.md), [swift-speech-lanes](swift-speech-lanes/labels.md), [swift-chatgpt-auth](swift-chatgpt-auth/labels.md), [swift-debounce](swift-debounce/labels.md), [swift-claude-code](swift-claude-code/labels.md) | SwiftPM | labeled; two groups verified |
 | [IceCubes](icecubes/labels.md) | xcodeproj with local packages | labeled; two groups verified |
-| [NetNewsWire](netnewswire/labels.md) | xcodeproj, iOS and macOS | labeled; groups verified |
+| [NetNewsWire](netnewswire/labels.md) | xcodeproj, iOS and macOS | labeled; two groups verified (20 deletions); one proposed deletion found alive before it was applied |
 | [Element X](element-x/labels.md) | XcodeGen | labeled; one group verified |
 | [GhActionsTest](gh-actions-test/labels.md) | CocoaPods | full cycle on a small app |
 | [GitHawk](githawk/labels.md) | CocoaPods | `describe` and `check` only: does not compile with Xcode 27.1 |
 | [stepik-ios](stepik-ios/deadcode.yml), [Tagger](tagger/deadcode.yml) | CocoaPods | struck: stepik-ios needs a git-crypt key, Tagger has a compile error with Xcode 27.1 |
+
+[`skill-test-xcdiff.md`](skill-test-xcdiff.md) records a fresh agent using the skill on a project
+it had never seen, and what changed because of it.
