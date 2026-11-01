@@ -48,6 +48,8 @@ public enum Defaults {
     "Localizable.stringsdict",
     "Localizable.xcstrings",
     "Mintfile",
+    // SwiftPM reads a C or system library target's module map by name.
+    "module.modulemap",
     "Package.resolved",
     "Package.swift",
     "Package@swift-*.swift",
@@ -80,6 +82,11 @@ public enum Defaults {
     "**/ci_scripts/**",
     "**/Settings.bundle/**",
     "**/*.docset/**",
+    // Core Data model bundles: code names the model, not the files inside, and finds mapping
+    // models by their content.
+    "**/*.xcdatamodeld/**",
+    "**/*.xcdatamodel/**",
+    "**/*.xcmappingmodel/**",
   ]
 
   /// Files whose mentions keep nothing alive, besides the configuration and the baseline.

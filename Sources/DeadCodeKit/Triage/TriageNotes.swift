@@ -173,7 +173,6 @@ private extension TriageNotes {
   func conforms(_ type: EnclosingType, to protocols: Set<String>, in path: String) -> Bool {
     let inherited = type.inheritance + sources.declaredInheritance(of: type.name, in: path)
     return inherited.contains { protocols.contains(Self.baseName($0)) }
-      || sources.hasConformingExtension(of: type.name, to: protocols, in: path)
   }
 
   func isTestSeam(_ finding: PeripheryFinding, context: DeclarationContext?) -> Bool {

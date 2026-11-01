@@ -51,6 +51,12 @@ struct FixtureProject {
     TextFiles.read(root.appendingPathComponent(path))
   }
 
+  /// Regenerates the Xcode project from `project.yml` and stages every file.
+  func generateXcodeProject() throws {
+    _ = try ProcessRunner().output(of: Command("xcodegen", ["generate", "--quiet"], in: root))
+    _ = try git(["add", "--all"])
+  }
+
   func load(_ configuration: Configuration = Configuration()) throws -> ProjectModel {
     try ProjectLoader().load(root: root, configuration: configuration)
   }

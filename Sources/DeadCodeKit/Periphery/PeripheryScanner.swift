@@ -127,11 +127,12 @@ struct TestCodeExcludes {
   func globs() -> [String] {
     let testTargets = model.targets.filter { $0.role != .product }
     let productTargets = model.targets.filter { $0.role == .product }
-    let productFiles = productTargets.flatMap { $0.sourceFiles + $0.otherSourceFiles }
+    let productFiles = Set(productTargets.flatMap { $0.sourceFiles + $0.otherSourceFiles })
     let productDirectories = Set(productFiles.flatMap(Self.ancestors))
     var globs: Set<String> = []
     for target in testTargets {
-      for file in target.sourceFiles + target.otherSourceFiles {
+      // A file the product compiles too stays indexed, or its calls would vanish.
+      for file in target.sourceFiles + target.otherSourceFiles where !productFiles.contains(file) {
         // The topmost ancestor that holds no product file.
         if let directory = Self.ancestors(of: file).first(where: {
           !productDirectories.contains($0)

@@ -176,12 +176,14 @@ How the checks decide:
 - **Dependencies.** Imports are read with SwiftSyntax in every `#if` branch, so a dependency
   used on one platform counts. `@_exported`, `@testable`, `@_spi`, access-level and scoped
   imports count, `#externalMacro(module:)` counts for macro targets, and Objective-C sources'
-  `@import` and `#import <Module/...>` count. Xcode app extensions, apps and bundles are
-  embedded rather than imported, so they are not checked; neither are plugin targets. A
-  framework target that a string literal of the dependent target names counts too: that is
-  how an embedded, unlinked framework is loaded with `dlopen` or `NSClassFromString`. A
-  dependency also stays when a target that depends on this one, directly or through others,
-  imports it without declaring it: that target gets the module through this one.
+  `@import` and `#import <Module/...>` count, in an Xcode target's bridging header too. Xcode
+  app extensions, apps and bundles are embedded rather than imported, so they are not
+  checked; neither are plugin targets. A framework target that a string literal of the
+  dependent target names counts too: that is how an embedded, unlinked framework is loaded
+  with `dlopen` or `NSClassFromString`. A dependency also stays when removing it would cut a
+  target that has it, directly or through others, off a module that target imports without
+  declaring it. Each dependency is judged with the ones already reported removed, so removing
+  them all at once still leaves every such import a way in.
 - **Files.** A tracked file is used when another tracked text file contains its stem (four
   characters or more), its whole name, a string literal that is exactly a shorter stem
   (`"atp"` in `url(forResource: "atp", withExtension: "rss")`), or a pattern such as
@@ -189,7 +191,9 @@ How the checks decide:
   `@2x`, `~ipad` and `~dark` variants count by their base name. Project membership
   (`project.pbxproj`) is not a use; build settings such as `INFOPLIST_FILE`, xcconfig files,
   and Run Script phases' scripts and input and output paths are. Swift files no target
-  compiles are candidates too, except inside nested packages and projects.
+  compiles are candidates too, except inside nested packages and projects. Files that tools
+  find by name or location are never candidates: licenses, lockfiles, `module.modulemap`,
+  Core Data model bundles, `Pods/` and the rest of `Defaults`.
 - **Assets.** An `imageset`, `colorset`, `symbolset` or `dataset` is used when a file outside
   asset catalogs names it, the identifier Xcode generates for it (`my-icon` → `myIcon`), or
   the part of its name before a digit, `-` or `_`, which catches names code builds at runtime.
@@ -201,7 +205,12 @@ How the checks decide:
   Targets that share a module name, such as an iOS and a macOS app both named after the
   product, would merge in that index, where Periphery can lose one copy's calls: such
   projects get one index per build instead, and a finding stays only when every build whose
-  index holds the declaration reports it. Findings in a type both declare still carry a note.
+  index holds the declaration reports it, or reports the declaration unused. Findings in a
+  type both declare still carry a note.
+- **Imports.** `prune-imports` keeps an import unless every configured build succeeds without
+  it. With Xcode, a scheme builds only its targets and their dependencies: files of targets
+  no configured build compiles are skipped and listed, and `--check-only` fails for a target
+  it could not check.
 
 ## The agent skill
 

@@ -109,7 +109,7 @@ public struct ProjectTarget: Sendable, Equatable {
   /// Directories that hold the target's sources.
   public var directories: [String]
   public var dependencies: [TargetDependency]
-  /// Compiled sources in other languages, such as Objective-C, sorted.
+  /// Compiled sources in other languages, such as Objective-C, and the bridging header, sorted.
   public var otherSourceFiles: [String]
   /// The manifest or project file that declares the target, for messages.
   public var manifestPath: String
@@ -140,6 +140,17 @@ public struct ProjectTarget: Sendable, Equatable {
 
   public func compiles(_ path: String) -> Bool {
     sourceFileSet.contains(path)
+  }
+
+  /// The module name SwiftPM and Xcode make of a target or product name: a character an
+  /// identifier cannot hold becomes `_`, and a leading digit gets a `_` before it.
+  public static func moduleName(of name: String) -> String {
+    let identifier = String(
+      name.map { character in
+        character.isLetter || character.isNumber || character == "_" ? character : "_"
+      }
+    )
+    return identifier.first?.isNumber == true ? "_" + identifier : identifier
   }
 }
 

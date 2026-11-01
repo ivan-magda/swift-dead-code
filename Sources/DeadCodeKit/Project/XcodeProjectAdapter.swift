@@ -198,9 +198,8 @@ private extension XcodeProjectAdapter {
     let sourceRoot = url.deletingLastPathComponent()
     let pbxproj = project.pbxproj
 
-    let resolver = BuildSettingsResolver(sourceRoot: sourceRoot)
     if url.lastPathComponent == "Pods.xcodeproj" {
-      try loadPods(pbxproj, projectPath: projectPath, resolver: resolver, context: &context)
+      try loadPods(pbxproj, projectPath: projectPath, context: &context)
       return
     }
 
@@ -215,13 +214,9 @@ private extension XcodeProjectAdapter {
       var loaded = try Self.target(
         target,
         sourceRoot: sourceRoot,
+        project: pbxproj.rootObject,
         manifestPath: manifestPath,
         context: &context
-      )
-      let settings = resolver.settings(of: target, project: pbxproj.rootObject)
-      loaded.moduleName = BuildSettingsResolver.moduleName(
-        targetName: target.name,
-        settings: settings
       )
       Self.add(synchronized, of: target, to: &loaded)
       context.targets.append(loaded)
@@ -388,25 +383,16 @@ private extension XcodeProjectAdapter {
 
   /// CocoaPods targets are external modules, except development pods (`:path`), whose
   /// sources live in the repository outside `Pods/`: those are project code.
-  func loadPods(
-    _ pbxproj: PBXProj,
-    projectPath: String,
-    resolver: BuildSettingsResolver,
-    context: inout LoadContext
-  ) throws {
+  func loadPods(_ pbxproj: PBXProj, projectPath: String, context: inout LoadContext) throws {
     let podsDirectory = (projectPath as NSString).deletingLastPathComponent
     // `Pods-*` aggregates link the pods into an app; resource bundles are no modules.
     for target in pbxproj.nativeTargets
     where !target.name.hasPrefix("Pods-") && target.productType != .bundle {
-      let settings = resolver.settings(of: target, project: pbxproj.rootObject)
-      let moduleName = BuildSettingsResolver.moduleName(
-        targetName: target.name,
-        settings: settings
-      )
-      var loaded = try Self.target(
+      let loaded = try Self.target(
         target,
         sourceRoot: URL(fileURLWithPath: podsDirectory, relativeTo: context.root)
           .standardizedFileURL,
+        project: pbxproj.rootObject,
         manifestPath: projectPath + "/project.pbxproj",
         context: &context
       )
@@ -414,9 +400,8 @@ private extension XcodeProjectAdapter {
         !path.hasPrefix(podsDirectory + "/")
       }
       if local.isEmpty {
-        context.externalModules.insert(moduleName)
+        context.externalModules.insert(loaded.moduleName)
       } else {
-        loaded.moduleName = moduleName
         context.targets.append(loaded)
       }
     }
@@ -441,6 +426,7 @@ private extension XcodeProjectAdapter {
   static func target(
     _ target: PBXNativeTarget,
     sourceRoot: URL,
+    project: PBXProject?,
     manifestPath: String,
     context: inout LoadContext
   ) throws -> ProjectTarget {
@@ -456,7 +442,54 @@ private extension XcodeProjectAdapter {
       }
       sources.insert(TextFiles.normalize(relative))
     }
+    let resolver = BuildSettingsResolver(sourceRoot: sourceRoot)
+    let settings = resolver.settings(of: target, project: project)
+    // Swift sources use the modules the bridging header imports.
+    if let header = bridgingHeader(
+      of: target,
+      settings: settings,
+      sourceRoot: sourceRoot,
+      context: context
+    ) {
+      sources.insert(header)
+    }
+    // A dependency's module name comes from the same setting layers as the target's own.
+    let dependencies = Self.dependencies(of: target, context: &context) { dependedOn in
+      BuildSettingsResolver.moduleName(
+        targetName: dependedOn.name,
+        settings: resolver.settings(of: dependedOn, project: project)
+      )
+    }
 
+    let productType = Self.productType(of: target)
+    let isTestSupport = context.configuration.testSupport.contains(target.name)
+    let role: ProjectTarget.Role =
+      if productType == .unitTest || productType == .uiTest {
+        .test
+      } else if isTestSupport {
+        .testSupport
+      } else {
+        .product
+      }
+    return ProjectTarget(
+      name: target.name,
+      moduleName: BuildSettingsResolver.moduleName(targetName: target.name, settings: settings),
+      role: role,
+      productType: productType,
+      sourceFiles: sources.filter { $0.hasSuffix(".swift") }.sorted(),
+      dependencies: dependencies,
+      otherSourceFiles: sources.filter { !$0.hasSuffix(".swift") }.sorted(),
+      manifestPath: manifestPath
+    )
+  }
+
+  /// The declared dependencies; one on a target of another project waits in the context until
+  /// every project is loaded.
+  static func dependencies(
+    of target: PBXNativeTarget,
+    context: inout LoadContext,
+    moduleName: (PBXTarget) -> String
+  ) -> [TargetDependency] {
     var dependencies: [TargetDependency] = []
     for dependency in target.dependencies {
       if let product = dependency.product {
@@ -469,7 +502,7 @@ private extension XcodeProjectAdapter {
           dependencies.append(
             TargetDependency(
               name: dependedOn.name,
-              moduleNames: [Self.moduleName(of: dependedOn, sourceRoot: sourceRoot)],
+              moduleNames: [moduleName(dependedOn)],
               kind: .target
             )
           )
@@ -486,27 +519,34 @@ private extension XcodeProjectAdapter {
       }
       context.externalModules.formUnion(declared.moduleNames)
     }
+    return dependencies
+  }
 
-    let productType = Self.productType(of: target)
-    let isTestSupport = context.configuration.testSupport.contains(target.name)
-    let role: ProjectTarget.Role =
-      if productType == .unitTest || productType == .uiTest {
-        .test
-      } else if isTestSupport {
-        .testSupport
-      } else {
-        .product
-      }
-    return ProjectTarget(
-      name: target.name,
-      moduleName: target.name,
-      role: role,
-      productType: productType,
-      sourceFiles: sources.filter { $0.hasSuffix(".swift") }.sorted(),
-      dependencies: dependencies,
-      otherSourceFiles: sources.filter { !$0.hasSuffix(".swift") }.sorted(),
-      manifestPath: manifestPath
-    )
+  /// `SWIFT_OBJC_BRIDGING_HEADER` as a path relative to the root, when the file exists.
+  static func bridgingHeader(
+    of target: PBXNativeTarget,
+    settings: [String: String],
+    sourceRoot: URL,
+    context: LoadContext
+  ) -> String? {
+    guard var path = settings["SWIFT_OBJC_BRIDGING_HEADER"] else {
+      return nil
+    }
+    let variables = [
+      "SRCROOT": sourceRoot.path, "PROJECT_DIR": sourceRoot.path, "SOURCE_ROOT": sourceRoot.path,
+      "TARGET_NAME": target.name,
+    ]
+    for (name, value) in variables {
+      path = path.replacingOccurrences(of: "$(\(name))", with: value)
+        .replacingOccurrences(of: "${\(name)}", with: value)
+    }
+    path = path.trimmingCharacters(in: CharacterSet(charactersIn: "\" "))
+    let url = URL(fileURLWithPath: path, relativeTo: sourceRoot).standardizedFileURL
+    guard !path.isEmpty, !path.contains("$"), FileManager.default.fileExists(atPath: url.path)
+    else {
+      return nil
+    }
+    return context.relative(url).map(TextFiles.normalize)
   }
 
   static func productDependency(_ name: String, context: LoadContext) -> TargetDependency {
@@ -544,12 +584,6 @@ private extension XcodeProjectAdapter {
     default:
       .other
     }
-  }
-
-  static func moduleName(of target: PBXTarget, sourceRoot: URL) -> String {
-    let settings = BuildSettingsResolver(sourceRoot: sourceRoot)
-      .settings(of: target, project: nil)
-    return BuildSettingsResolver.moduleName(targetName: target.name, settings: settings)
   }
 }
 

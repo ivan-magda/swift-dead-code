@@ -84,17 +84,9 @@ public struct ProjectBuilder: Sendable {
     try resolvedSchemes(variant, container: container)
   }
 
-  /// The builds to run: the configured ones, or one with the project settings.
+  /// The builds to run: the configured ones, or one with only the project settings.
   public var variants: [BuildVariant] {
-    if !configuration.builds.isEmpty {
-      return configuration.builds
-    }
-    var variant = BuildVariant(name: "default")
-    variant.schemes = configuration.project.schemes
-    variant.destination = configuration.project.destination
-    variant.configuration = configuration.project.configuration
-    variant.buildArguments = configuration.project.buildArguments
-    return [variant]
+    configuration.builds.isEmpty ? [BuildVariant(name: "default")] : configuration.builds
   }
 }
 
@@ -235,37 +227,14 @@ private extension ProjectBuilder {
     return shared
   }
 
-  /// Builds one scheme for testing, or plainly when the scheme has no test action or the
-  /// build turns tests off.
-  func buildScheme(
-    arguments: [String],
-    forTesting includeTests: Bool,
-    copy: URL,
-    log: URL
-  )
-    throws
-  {
-    guard includeTests else {
-      try runBuild(Command("xcodebuild", ["build"] + arguments, in: copy), log: log)
-      return
-    }
-    let forTesting = try runner.run(
-      Command("xcodebuild", ["build-for-testing"] + arguments, in: copy)
-    )
-    if forTesting.succeeded {
-      try TextFiles.write(forTesting.standardOutput + forTesting.standardError, to: log)
-      return
-    }
-    // A scheme without a test action cannot build for testing; build it plainly.
-    let output = forTesting.standardOutput + forTesting.standardError
-    if output.contains("is not currently configured for the test action")
-      || output.contains("not configured for testing")
-    {
-      try runBuild(Command("xcodebuild", ["build"] + arguments, in: copy), log: log)
-      return
-    }
+  /// Builds one scheme into its log; a failed build throws.
+  func buildScheme(arguments: [String], forTesting: Bool, copy: URL, log: URL) throws {
+    let result = try runScheme(arguments: arguments, forTesting: forTesting, in: copy)
+    let output = result.standardOutput + result.standardError
     try TextFiles.write(output, to: log)
-    throw DeadCodeError.failure(Self.failureMessage(output: output, log: log))
+    guard result.succeeded else {
+      throw DeadCodeError.failure(Self.failureMessage(output: output, log: log))
+    }
   }
 
   /// Shared schemes of a project, or of every project a workspace's directory holds.
@@ -283,6 +252,26 @@ private extension ProjectBuilder {
 }
 
 // MARK: - Running
+
+extension ProjectBuilder {
+  /// Runs one scheme's build for testing, or plainly when the scheme has no test action or
+  /// the build turns tests off.
+  func runScheme(arguments: [String], forTesting: Bool, in copy: URL) throws -> CommandResult {
+    if forTesting {
+      let result = try runner.run(
+        Command("xcodebuild", ["build-for-testing"] + arguments, in: copy)
+      )
+      let output = result.standardOutput + result.standardError
+      let hasNoTestAction =
+        output.contains("is not currently configured for the test action")
+        || output.contains("not configured for testing")
+      if result.succeeded || !hasNoTestAction {
+        return result
+      }
+    }
+    return try runner.run(Command("xcodebuild", ["build"] + arguments, in: copy))
+  }
+}
 
 private extension ProjectBuilder {
   func runBuild(_ command: Command, log: URL) throws {

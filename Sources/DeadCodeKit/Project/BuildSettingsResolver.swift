@@ -73,15 +73,7 @@ struct BuildSettingsResolver {
       .compactMap { $0 }
       .map { expand($0, targetName: targetName, settings: settings) }
     let name = candidates.first { !$0.contains("$") && !$0.isEmpty } ?? targetName
-    var identifier = String(
-      name.map { character in
-        character.isLetter || character.isNumber || character == "_" ? character : "_"
-      }
-    )
-    if identifier.first?.isNumber == true {
-      identifier = "_" + identifier
-    }
-    return identifier
+    return ProjectTarget.moduleName(of: name)
   }
 }
 

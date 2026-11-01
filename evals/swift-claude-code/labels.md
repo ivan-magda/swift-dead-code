@@ -19,6 +19,17 @@ Configuration: [`deadcode.yml`](deadcode.yml).
 
 61 redundant-public notes are access-level findings, not dead code.
 
+Production declarations that only tests reach. Two of the 61 are public declarations only tests
+use: Periphery ignores test callers when it judges public access, so the scan with tests calls
+them redundant public, and the scan without tests calls them unused. Triage hid them until the
+2026-11-01 review fix (`TriageReport`: a redundant-public note no longer counts as a finding
+with tests); the same JSON now gives these two rows:
+
+| Location | Kind | Name | Verdict | Evidence | Triage note |
+| --- | --- | --- | --- | --- | --- |
+| Sources/Core/BackgroundManager.swift:104:15 | function.method.instance | `awaitCompletion(jobId:)` | KEEP | a test seam: its doc comment says "Used for test determinism"; only `AgentLoopTests` and `BackgroundManagerTests` call it | "named or documented as a test seam" |
+| Sources/Core/SkillLoader.swift:49:14 | var.instance | `isEmpty` | TRUE (test-only) | only `Tests/CoreTests/SkillLoaderTests.swift` reads it (lines 54, 75, 109, 119, 129); `Agent` uses `descriptions` and `content(for:)`, and `SkillLoader` checks `skills.isEmpty` itself. Removing it means rewriting those assertions, so it was not deleted | - |
+
 ## `prune-imports`
 
 `--all`: 0 of 4 candidate imports are removable.

@@ -95,7 +95,8 @@ public final class ImportPruner {
 
 extension ImportPruner {
   /// The Swift files inside a target that the options select. `--base` and `--all` skip
-  /// test code unless `includeTests`; files named explicitly are always checked.
+  /// excluded paths, and test code unless `includeTests`; files named explicitly are always
+  /// checked.
   func filesToCheck() throws -> [String] {
     let git = Git(directory: model.root, runner: runner)
     var selected: [String] = []
@@ -105,6 +106,7 @@ extension ImportPruner {
     if options.all {
       selected += try git.trackedFiles().filter { $0.hasSuffix(".swift") }
     }
+    selected = selected.filter { !configuration.exclude.matchesAny($0) }
     if !options.includeTests {
       let testGlobs = configuration.testSupportGlobs
       selected = selected.filter { !model.isTestCode($0, testGlobs: testGlobs) }
@@ -147,9 +149,11 @@ extension ImportPruner {
 // MARK: - Check Only
 
 private extension ImportPruner {
-  /// Prints the checked files that compile only by borrowing another file's import.
+  /// Prints the checked files that compile only by borrowing another file's import; a target
+  /// it could not check makes the run fail.
   func checkOnly(_ workspace: PruneWorkspace, owners: Set<String>) throws -> Int32 {
     var borrowing: [String: Set<String>] = [:]
+    var unchecked: [String] = []
     try workspace.writeSources(removing: [])
     for name in owners.sorted() {
       progress("check: strict build of \(name)")
@@ -159,11 +163,15 @@ private extension ImportPruner {
         borrowing[path, default: []].formUnion(messages)
       }
       let outside = errors.keys.filter { workspace.originalLines[$0] == nil }
-      if outside.contains(where: { !model.owningTargets(of: $0).contains(name) }) {
+      if !workspace.built(name) {
+        output("\(name): no configured build compiles it, so \(name) was not checked.")
+        unchecked.append(name)
+      } else if outside.contains(where: { !model.owningTargets(of: $0).contains(name) }) {
         output(
           "\(name): a dependency failed to build, so \(name) was not checked. "
             + "Log: \(workspace.log.path)"
         )
+        unchecked.append(name)
       } else if !outside.isEmpty {
         output(
           "\(name): \(outside.count) files outside the list also borrow imports (not in scope)."
@@ -176,6 +184,9 @@ private extension ImportPruner {
       for message in messages.sorted() {
         output("    \(message)")
       }
+    }
+    guard unchecked.isEmpty else {
+      throw DeadCodeError.failure("not checked: \(unchecked.joined(separator: ", "))")
     }
     if borrowing.isEmpty {
       output("No listed file relies on another file's imports.")
@@ -201,7 +212,17 @@ private extension ImportPruner {
         "baseline build failed; fix the project build first. Log: \(workspace.log.path)"
       )
     }
-    let candidates = candidates(in: files)
+    // An import in a target no configured build compiles would look removable.
+    let unbuilt = files.filter { !workspace.compiledEverywhere($0) }
+    if !unbuilt.isEmpty {
+      let targets = Set(unbuilt.flatMap { model.owningTargets(of: $0) })
+        .filter { !workspace.built($0) }
+      output(
+        "Not checked: \(unbuilt.count) files of \(targets.sorted().joined(separator: ", ")), "
+          + "which no configured build compiles."
+      )
+    }
+    let candidates = candidates(in: files.filter(workspace.compiledEverywhere))
     let removed = try restoreBorrowed(workspace, removed: try prune(workspace, candidates))
     let patch = options.work.appendingPathComponent("prune.patch")
     try TextFiles.write(workspace.patch(removing: removed), to: patch)

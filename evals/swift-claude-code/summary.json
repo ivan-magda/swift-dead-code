@@ -16,7 +16,8 @@
   },
   "scan": {
     "findings": 2,
-    "redundant_public": 61
+    "redundant_public": 61,
+    "test_only": 2
   },
   "seconds": {
     "check_only": 61,
@@ -26,7 +27,7 @@
   "verdicts": {
     "AMBIGUOUS": 0,
     "FALSE": 2,
-    "KEEP": 9,
-    "TRUE": 1
+    "KEEP": 10,
+    "TRUE": 2
   }
 }

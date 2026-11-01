@@ -121,15 +121,6 @@ public final class SourceIndex {
     }
     return topLevelTypes[path] ?? []
   }
-
-  /// Whether the file has an extension of `typeName` that adopts one of `protocols`.
-  public func hasConformingExtension(
-    of typeName: String,
-    to protocols: Set<String>,
-    in path: String
-  ) -> Bool {
-    (inheritance(in: path)[typeName] ?? []).contains { protocols.contains(Self.baseName($0)) }
-  }
 }
 
 // MARK: - Parsing
@@ -331,11 +322,6 @@ private extension SourceIndex {
 
   static func inheritance(_ clause: InheritanceClauseSyntax?) -> [String] {
     clause?.inheritedTypes.map { $0.type.trimmedDescription } ?? []
-  }
-
-  /// `Swift.Codable` and `Codable` both name `Codable`.
-  static func baseName(_ type: String) -> String {
-    String(type.split(separator: ".").last ?? Substring(type))
   }
 
   static func attributeNames(_ attributes: AttributeListSyntax) -> [String] {

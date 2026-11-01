@@ -192,7 +192,8 @@ several candidates the tool stops and asks for `project.path`. A `project.yml` (
 - Source files: Swift files under the target directory, tracked or untracked-but-not-ignored
   (`git ls-files --cached --others --exclude-standard`), minus the target's `exclude` paths.
 - Dependencies: `byName`, `target`, `product` entries; a product accepts its name, its
-  module aliases and the names configured in `module_names`.
+  module aliases and the names configured in `module_names`. A target's module name is its
+  name as an identifier (`My-Core` → `My_Core`), as SwiftPM spells it.
 - External modules (`deps`): every product dependency of every target.
 - Build for scan: `swift build --build-tests --scratch-path W/build`; index store at
   `W/build/out` (Swift Build) or `W/build/debug/index/store` (native), whichever exists.
@@ -213,7 +214,10 @@ several candidates the tool stops and asks for `project.path`. A `project.yml` (
   plus every Swift file under `PBXFileSystemSynchronizedRootGroup` folders minus membership
   exceptions (Xcode 16+ projects).
 - Module name: `PRODUCT_MODULE_NAME`, else `PRODUCT_NAME` when it is not a variable, else the
-  target name, with characters outside `[A-Za-z0-9_]` replaced by `_`.
+  target name, with characters outside `[A-Za-z0-9_]` replaced by `_`. A dependency on a
+  target gets the module name from the same setting layers, project ones included.
+- The file `SWIFT_OBJC_BRIDGING_HEADER` names counts among the target's other sources, so the
+  modules it imports count as used by the target.
 - Dependencies: target dependencies whose product is a framework or library (apps, app
   extensions, watch apps and bundles are embedded, not imported), plus
   `packageProductDependencies` by product name. CocoaPods dependencies are not checked by
@@ -228,7 +232,10 @@ several candidates the tool stops and asks for `project.path`. A `project.yml` (
 - Strict check: the copy's `project.pbxproj` gets
   `SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES` on the checked target's build
   configurations (XcodeProj writes it), and one `xcodebuild build` of the scheme with that
-  copy. An error in another target means "not checked", as in swift-claw.
+  copy. An error in another target means "not checked", as in swift-claw, and the run fails.
+- A scheme builds only its own targets and their dependencies. Each build's target dependency
+  graph, which xcodebuild prints before it builds, tells the pruner which targets it covered;
+  files of other targets are skipped and listed.
 
 XcodeGen and Tuist projects use the generated `.xcodeproj`. Reading their manifests is not
 needed for any check, so it is left out until a candidate needs it (brief: add abstraction
@@ -551,3 +558,28 @@ knowledge; `DECISIONS.md` has the reasons and rollbacks.
    scheme) has only one index.
 4. **Builds** (§6): `builds[].for_testing: false` builds a scheme without its test targets
    (NetNewsWire's macOS tests compile AppleScript against an installed app).
+
+## 16. Changes from the code review (2026-11-01)
+
+A review by another model (Codex, `gpt-6-astra`) of the whole repository found these; each fix
+has a test that failed before it, and `DECISIONS.md` has the reasons.
+
+1. **Dependencies** (§7.1): a dependency stays when removing it would cut a target that has it,
+   directly or through others, off a module that target imports without declaring it. Each
+   one is judged with the ones already reported removed, so two routes to one module no longer
+   both look dead. The target's own bridging header counts as its source; SwiftPM module names
+   are identifiers (`My-Core` → `My_Core`); a dependency's Xcode module name uses the project
+   settings too.
+2. **Conventional files** (§7.1): `module.modulemap` and Core Data model bundles
+   (`.xcdatamodeld`, `.xcdatamodel`, `.xcmappingmodel`).
+3. **Confirmation by builds** (§15.3): a build that reports only the declaration's redundant
+   public access uses it, so it no longer confirms another finding; a build that reports the
+   declaration unused still confirms a weaker one.
+4. **Scan without tests**: a file that a product target compiles stays indexed even when a test
+   target compiles it too, so its calls keep counting.
+5. **Triage**: a redundant-public note with tests no longer hides a production declaration
+   that only tests reach (Periphery ignores test callers when it judges public access).
+6. **`prune-imports`** (§7.5): Xcode files of targets that no configured scheme builds are
+   skipped; `--check-only` fails when it could not check a target; the configuration's
+   `exclude` applies to `--base` and `--all`; `--base` reads git's paths with `-z`, so
+   non-ASCII names survive; a scheme without a test action builds plainly, as in `scan`.

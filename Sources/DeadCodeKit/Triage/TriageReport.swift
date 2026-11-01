@@ -67,8 +67,9 @@ public struct TriageReport {
       finding.kind != "module" && finding.hint != Self.assignOnly
         && finding.hint != Self.redundantPublic
     }
-    // A declaration flagged without tests but not with them is one that tests use.
-    let flaggedWithTests = Set(all.map(\.ids))
+    // A declaration flagged without tests but not with them is one that tests use. Redundant
+    // public access is no flag: the declaration is used inside its module.
+    let flaggedWithTests = Set(all.filter { $0.hint != Self.redundantPublic }.map(\.ids))
     let onlyWithoutTests = production.filter { finding in
       !flaggedWithTests.contains(finding.ids) && finding.kind != "module"
     }

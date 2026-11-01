@@ -11,6 +11,11 @@ final class PruneWorkspace {
     pattern: #"^(/[^:\n]+\.swift):(\d+):\d+: error: (.*)$"#,
     options: [.anchorsMatchLines]
   )
+  /// A target in the dependency graph xcodebuild prints before it builds.
+  static let graphTarget = try? NSRegularExpression(
+    pattern: #"^ {4}Target '([^']+)' in project '"#,
+    options: [.anchorsMatchLines]
+  )
 
   let model: ProjectModel
   let configuration: Configuration
@@ -21,6 +26,8 @@ final class PruneWorkspace {
   let originalLines: [String: [String]]
   /// The latest build's log.
   private(set) var log: URL
+  /// The targets the latest Xcode build covered, from its target dependency graph.
+  private var builtTargets: Set<String> = []
   private var originalProjectFiles: [String: String] = [:]
 
   init(
@@ -100,11 +107,38 @@ final class PruneWorkspace {
     }
     let output = TextFiles.strippingTerminalEscapes(result.standardOutput + result.standardError)
     try TextFiles.write(output, to: log)
+    if case .xcode = model.kind {
+      builtTargets = Self.targetsInDependencyGraph(output)
+    }
     let errors = errorsByFile(output)
     if !result.succeeded && errors.isEmpty {
       throw DeadCodeError.failure("build failed without file-level errors; see \(log.path)")
     }
     return (result.succeeded, errors)
+  }
+
+  /// Whether the latest build compiled `target`: a package's build compiles every target, a
+  /// scheme only its own and their dependencies.
+  func built(_ target: String) -> Bool {
+    model.kind == .swiftPackage || builtTargets.contains(target)
+  }
+
+  /// Whether the latest build compiled `path` in every target that compiles it.
+  func compiledEverywhere(_ path: String) -> Bool {
+    model.owningTargets(of: path).allSatisfy(built)
+  }
+
+  /// The targets an xcodebuild log lists in its target dependency graph.
+  static func targetsInDependencyGraph(_ output: String) -> Set<String> {
+    guard let expression = graphTarget else {
+      return []
+    }
+    let matches = expression.matches(in: output, range: NSRange(output.startIndex..., in: output))
+    return Set(
+      matches.compactMap { match in
+        Range(match.range(at: 1), in: output).map { String(output[$0]) }
+      }
+    )
   }
 }
 
@@ -231,15 +265,18 @@ private extension PruneWorkspace {
     for variant in builder.variants {
       for scheme in try builder.schemes(of: variant, container: container) {
         let arguments =
-          [variant.forTesting ? "build-for-testing" : "build"]
-          + builder.xcodebuildArguments(
+          builder.xcodebuildArguments(
             scheme: scheme,
             variant: variant,
             container: container,
             derivedData: work.appendingPathComponent("DerivedData")
           )
           + ["OTHER_SWIFT_FLAGS=$(inherited) -continue-building-after-errors"]
-        let result = try runner.run(Command("xcodebuild", arguments, in: copy))
+        let result = try builder.runScheme(
+          arguments: arguments,
+          forTesting: variant.forTesting,
+          in: copy
+        )
         combined.standardOutput += result.standardOutput
         combined.standardError += result.standardError
         if !result.succeeded {

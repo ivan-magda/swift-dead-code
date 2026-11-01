@@ -70,3 +70,12 @@ target, and new conventional files. Rerun on 2026-10-31 with the final binary, `
 on the clone is still byte-identical to `scripts/check-dead-code.py --report` (the same four
 allowlisted files). The triage change (types a same-named module also declares) cannot fire on
 a package, whose module names are unique.
+
+## After the code review (2026-11-01)
+
+The review fixes touched the dependency check, conventional files, module names, triage and
+`prune-imports`. Rerun with the new binary: `check --report` is still byte-identical to the
+script; `--check-only` on the same three files prints the same line and exits 0; triage of the
+saved `all.json` and `prod.json` gives a byte-identical `report.md`. swift-claw has no
+`exclude` paths and SwiftPM builds cover every target, so the pruner's new selection rules
+cannot change its candidates.

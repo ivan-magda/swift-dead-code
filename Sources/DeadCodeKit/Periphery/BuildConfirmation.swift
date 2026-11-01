@@ -7,9 +7,10 @@ import Foundation
 /// product, give their same-named types one USR, and Periphery merges them in a combined
 /// index: it can lose one copy's calls, differently from run to run. Each build alone has no
 /// such twins. A combined finding stays when some build reports it and every build whose index
-/// holds its USR reports it too: a build that indexed the declaration and did not report it
-/// uses it, and a build that never compiled it, such as code under `#if os(macOS)` in an iOS
-/// build, has no say.
+/// holds its USR reports it too, or reports the declaration unused, the stronger claim: a build
+/// that indexed the declaration and did not report it, or reported only its redundant public
+/// access, uses it, and a build that never compiled it, such as code under `#if os(macOS)` in an
+/// iOS build, has no say.
 public struct BuildConfirmation {
   public init() {}
 
@@ -22,8 +23,10 @@ public struct BuildConfirmation {
   ) -> [PeripheryFinding] {
     let keysByBuild = byBuild.mapValues { Set($0.map(Self.key)) }
     return combined.filter { finding in
-      let key = Self.key(finding)
-      let reporting = keysByBuild.filter { $0.value.contains(key) }
+      var unused = finding
+      unused.hints = ["unused"]
+      let keys: Set = [Self.key(finding), Self.key(unused)]
+      let reporting = keysByBuild.filter { !$0.value.isDisjoint(with: keys) }
       guard !reporting.isEmpty else {
         return false
       }
@@ -34,7 +37,7 @@ public struct BuildConfirmation {
   }
 
   static func key(_ finding: PeripheryFinding) -> String {
-    "\(finding.location) \(finding.kind) \(finding.name)"
+    "\(finding.location) \(finding.kind) \(finding.name) \(finding.hint)"
   }
 }
 

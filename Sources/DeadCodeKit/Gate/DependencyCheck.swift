@@ -5,27 +5,42 @@ import Foundation
 /// Imports count in every `#if` branch, so a dependency used only on another platform stays.
 /// `#externalMacro(module:)` counts as a use of its module, and an Objective-C source's
 /// `@import` or `#import <Module/...>` counts too. Plugin targets are skipped: their
-/// dependencies are tools they run, never modules they import. A dependency also stays when a
-/// target that depends on this one imports it without declaring it and has no other way to it.
+/// dependencies are tools they run, never modules they import. A dependency also stays when
+/// removing it would cut a target that has it, directly or through others, off a module that
+/// target imports without declaring it. Each dependency is judged with the ones already found
+/// removed, so removing them all at once still leaves every such import a way in.
 struct DependencyCheck {
+  /// A declared dependency, by the target that declares it and the name it declares.
+  struct Edge: Hashable {
+    var target: String
+    var dependency: String
+  }
+
   let model: ProjectModel
 
   func findings() -> Set<GateFinding> {
-    var findings: Set<GateFinding> = []
     let imports = importsByTarget()
+    var dead: Set<Edge> = []
     for target in model.targets where target.productType != .plugin {
       let imported = imports[target.name] ?? []
       for dependency in target.dependencies
       where dependency.moduleNames.isDisjoint(with: imported)
         && !(dependency.kind == .target && namesInStrings(dependency, of: target))
-        && !passesOn(dependency, of: target, imports: imports)
       {
-        findings.insert(
-          GateFinding(kind: .dependency, subject: "\(target.name) \(dependency.name)")
-        )
+        let edge = Edge(target: target.name, dependency: dependency.name)
+        let cutsAnImport = ([target] + dependents(of: target)).contains { client in
+          let needed = reachableModules(from: client, without: dead)
+            .intersection(imports[client.name] ?? [])
+          return !needed.isSubset(of: reachableModules(from: client, without: dead.union([edge])))
+        }
+        if !cutsAnImport {
+          dead.insert(edge)
+        }
       }
     }
-    return findings
+    return Set(
+      dead.map { GateFinding(kind: .dependency, subject: "\($0.target) \($0.dependency)") }
+    )
   }
 }
 
@@ -52,20 +67,6 @@ private extension DependencyCheck {
     return imports
   }
 
-  /// Whether a target that depends on `target`, directly or through others, imports the
-  /// dependency without declaring it and reaches it only through `target`.
-  func passesOn(
-    _ dependency: TargetDependency,
-    of target: ProjectTarget,
-    imports: [String: Set<String>]
-  ) -> Bool {
-    dependents(of: target).contains { client in
-      !(imports[client.name] ?? []).isDisjoint(with: dependency.moduleNames)
-        && !Self.declares(client, dependency)
-        && !reaches(dependency, from: client, avoiding: target)
-    }
-  }
-
   /// The targets that depend on `target`, directly or through others.
   func dependents(of target: ProjectTarget) -> [ProjectTarget] {
     var modules = [target.moduleName]
@@ -84,34 +85,24 @@ private extension DependencyCheck {
     return dependents
   }
 
-  /// Whether a target that `client` depends on, directly or through others, declares the
-  /// dependency; `avoided`'s own declaration does not count.
-  func reaches(
-    _ dependency: TargetDependency,
-    from client: ProjectTarget,
-    avoiding avoided: ProjectTarget
-  ) -> Bool {
+  /// The modules `client` can import through its dependencies, directly or through the targets
+  /// they name, without the `removed` ones.
+  func reachableModules(from client: ProjectTarget, without removed: Set<Edge>) -> Set<String> {
+    var modules: Set<String> = []
     var stack = [client]
     var visited: Set<String> = [client.name]
     while let current = stack.popLast() {
-      for declared in current.dependencies {
+      for dependency in current.dependencies
+      where !removed.contains(Edge(target: current.name, dependency: dependency.name)) {
+        modules.formUnion(dependency.moduleNames)
         for next in model.targets
-        where !visited.contains(next.name) && declared.moduleNames.contains(next.moduleName) {
+        where !visited.contains(next.name) && dependency.moduleNames.contains(next.moduleName) {
           visited.insert(next.name)
-          if next.name != avoided.name, Self.declares(next, dependency) {
-            return true
-          }
           stack.append(next)
         }
       }
     }
-    return false
-  }
-
-  static func declares(_ target: ProjectTarget, _ dependency: TargetDependency) -> Bool {
-    target.dependencies.contains { declared in
-      !declared.moduleNames.isDisjoint(with: dependency.moduleNames)
-    }
+    return modules
   }
 }
 

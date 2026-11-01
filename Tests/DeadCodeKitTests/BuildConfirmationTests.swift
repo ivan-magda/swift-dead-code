@@ -26,24 +26,35 @@ struct BuildConfirmationTests {
     let nobodyUses = finding("nobodyUses")
     // Generated code outside every build's index, which no build reports on its own.
     let generated = finding("generated")
+    // The iOS build alone sees a public method used inside its own module: not dead code.
+    let usedInside = finding("usedInside")
+    var publicUsedInside = usedInside
+    publicUsedInside.hints = ["redundantPublicAccessibility"]
+    // Only the iOS build calls this public method, inside its module; the macOS build never
+    // calls it, which confirms that its public access is redundant.
+    var publicNote = finding("publicNote")
+    publicNote.hints = ["redundantPublicAccessibility"]
     let byBuild = [
-      "ios": [macUses, nobodyUses],
-      "mac": [macOnly, macConditional, nobodyUses],
+      "ios": [macUses, nobodyUses, publicUsedInside, publicNote],
+      "mac": [macOnly, macConditional, nobodyUses, finding("publicNote")],
     ]
     let seen: [String: Set<String>] = [
-      "ios": ["s:macUses", "s:nobodyUses"],
-      "mac": ["s:lostCall", "s:macOnly", "s:macUses", "s:macConditional", "s:nobodyUses"],
+      "ios": ["s:macUses", "s:nobodyUses", "s:usedInside", "s:publicNote"],
+      "mac": [
+        "s:lostCall", "s:macOnly", "s:macUses", "s:macConditional", "s:nobodyUses",
+        "s:publicNote",
+      ],
     ]
 
     // when
     let kept = BuildConfirmation().confirmed(
-      [lostCall, macOnly, macUses, macConditional, nobodyUses, generated],
+      [lostCall, macOnly, macUses, macConditional, nobodyUses, generated, usedInside, publicNote],
       byBuild: byBuild,
       seen: seen
     )
 
     // then
-    #expect(kept.map(\.name) == ["macOnly", "macConditional", "nobodyUses"])
+    #expect(kept.map(\.name) == ["macOnly", "macConditional", "nobodyUses", "publicNote"])
   }
 
   @Test

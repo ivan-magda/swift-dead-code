@@ -123,6 +123,37 @@ struct IntegrationTests {
     #expect(printed.contains { $0.contains("missing import of defining module 'Helper'") })
     #expect(!printed.contains { $0.hasPrefix("Sources/Lib/Twin.swift") })
   }
+
+  @Test(.timeLimit(.minutes(10)))
+  func checkOnlyFailsWhenATargetCouldNotBeChecked() throws {
+    // given: Helper, which Lib depends on, no longer compiles.
+    let project = try FixtureProject.copy("ScanPackage")
+    defer {
+      project.remove()
+    }
+    let helper = try #require(project.read("Sources/Helper/Helper.swift"))
+    try project.write(helper + "let broken: Int = \"text\"\n", to: "Sources/Helper/Helper.swift")
+    let configuration = Configuration()
+    var options = PruneOptions(work: project.scratch)
+    options.checkOnly = true
+    options.lockName = Self.lockName
+    options.files = ["Sources/Lib/Borrower.swift"]
+    let pruner = ImportPruner(
+      model: try project.load(configuration),
+      configuration: configuration,
+      options: options,
+      progress: { _ in },
+      output: { _ in }
+    )
+
+    // when
+    let error = #expect(throws: DeadCodeError.self) {
+      try pruner.run()
+    }
+
+    // then
+    #expect(error?.message == "not checked: Lib")
+  }
 }
 
 @Suite

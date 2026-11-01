@@ -131,14 +131,18 @@ re-document anything whose remaining use changed.
 ## 5. Completeness sweep (gate, repeat until nothing new)
 
 1. `prune-imports --work DIR --base <branch base>`, then `git apply DIR/prune.patch`. It keeps
-   any import a file uses through members, even when the file compiles without it.
+   any import a file uses through members, even when the file compiles without it. A "Not
+   checked" line names targets no configured build compiles: add a scheme or build for them
+   in `.deadcode.yml` and run again.
 2. Repository-wide task: `prune-imports --work DIR --all --modules deps` (dependency modules
    plus the configured toolchain modules; platform modules stay out because one platform's
    build cannot prove another's). Run it last and alone: it takes one build per module.
 3. `prune-imports --work DIR --check-only --base <branch base>`, then the same check on a clone
    of the base commit (`git clone --local . <scratch>/base && git -C <scratch>/base checkout
    <base>`). A file listed now but not on base borrows because of a hand edit: put back the
-   import its error names. Files listed on both are pre-existing: note them in the PR.
+   import its error names. Files listed on both are pre-existing: note them in the PR. An exit
+   with `not checked: <targets>` means a dependency failed to build or no build covers the
+   target: that is no result, so fix the build or the configuration first.
 4. `check` again: removed imports orphan target dependencies, deletions orphan assets and
    files. Keep a finding only with a reason in the allowlist.
 5. Every edited test file still uses the module its target tests; otherwise move the test to

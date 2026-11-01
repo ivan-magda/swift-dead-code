@@ -27,11 +27,12 @@ public struct Git: Sendable {
     let output = try runner.output(
       of: Command(
         "git",
-        ["diff", "--name-only", "--relative", "--diff-filter=AM", base],
+        ["diff", "-z", "--name-only", "--relative", "--diff-filter=AM", base],
         in: directory
       )
     )
-    return output.split(separator: "\n").map(String.init).sorted()
+    // -z keeps paths unquoted: without it git escapes names such as `Über.swift`.
+    return output.split(separator: "\0").map(String.init).sorted()
   }
 
   /// Whether the directory is inside a git work tree.

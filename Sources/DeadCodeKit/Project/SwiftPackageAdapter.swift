@@ -229,6 +229,7 @@ private extension SwiftPackageAdapter {
       }
     return ProjectTarget(
       name: target.name,
+      moduleName: ProjectTarget.moduleName(of: target.name),
       role: role,
       productType: target.type == "regular" && names.executables.contains(target.name)
         ? .executable : Self.productType(of: target.type),
@@ -303,15 +304,18 @@ private extension SwiftPackageAdapter {
     if let name = dependency.target.first?.string {
       return TargetDependency(
         name: name,
-        moduleNames: Set([name] + (moduleNames[name] ?? [])),
+        moduleNames: Set([ProjectTarget.moduleName(of: name)] + (moduleNames[name] ?? [])),
         kind: .target
       )
     }
     if let name = dependency.byName.first?.string {
+      let isTarget = names.targets.contains(name)
       return TargetDependency(
         name: name,
-        moduleNames: Set([name] + (moduleNames[name] ?? [])),
-        kind: names.targets.contains(name) ? .target : .product
+        moduleNames: Set(
+          [isTarget ? ProjectTarget.moduleName(of: name) : name] + (moduleNames[name] ?? [])
+        ),
+        kind: isTarget ? .target : .product
       )
     }
     let product = dependency.product

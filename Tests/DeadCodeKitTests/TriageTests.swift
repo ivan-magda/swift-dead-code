@@ -109,6 +109,10 @@ struct TriageTests {
     ),
     ("20:22 | var.instance | `selection`", "read through its projected value $selection"),
     (
+      "22:8 | function.method.instance | `render()`",
+      "may witness a requirement of: UIViewController"
+    ),
+    (
       "31:8 | function.method.instance | `helper()`",
       "may witness a requirement of: UIViewController; used only by flagged caller: settle "
         + "that first"
@@ -150,7 +154,13 @@ struct TriageTests {
       Self.finding(31, 8, "function.method.instance", "helper()"),
       Self.finding(35, 8, "enumelement", "legacyName"),
     ]
-    let production = all + [Self.finding(39, 6, "function.free", "makeStoreForTesting()")]
+    // With tests render() is used inside its module, so only its public access is redundant;
+    // without tests nothing calls it.
+    let render = Self.finding(22, 8, "function.method.instance", "render()")
+    var publicRender = render
+    publicRender.hints = ["redundantPublicAccessibility"]
+    let production =
+      all + [Self.finding(39, 6, "function.free", "makeStoreForTesting()"), render]
     let isolation = Self.finding(41, 14, "var.parameter", "isolation")
     let dismiss = Self.finding(51, 39, "var.instance", "dismiss")
     let conformance = PeripheryFinding(
@@ -163,7 +173,7 @@ struct TriageTests {
 
     // when
     let report = TriageReport(
-      all: (all + [isolation, dismiss, conformance]).shuffled(),
+      all: (all + [isolation, dismiss, conformance, publicRender]).shuffled(),
       production: production + [isolation, dismiss],
       model: try project.load(),
       configuration: Configuration(),
@@ -177,7 +187,7 @@ struct TriageTests {
       #expect(report.contains(row), "missing: \(row)")
     }
     #expect(report.contains("exposed to Objective-C: check selectors"))
-    #expect(report.contains("Unused declarations: 12. Test-only production declarations: 1."))
+    #expect(report.contains("Unused declarations: 12. Test-only production declarations: 2."))
   }
 
   @Test

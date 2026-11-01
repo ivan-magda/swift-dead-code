@@ -204,7 +204,8 @@ private extension ScanRunner {
     }
     let kept = objects.filter { object in
       let fields = ["location", "kind", "name"].map { object[$0] as? String ?? "" }
-      return keys.contains(fields.joined(separator: " "))
+      let hint = (object["hints"] as? [String] ?? []).joined(separator: ",")
+      return keys.contains((fields + [hint]).joined(separator: " "))
     }
     let output = try JSONSerialization.data(
       withJSONObject: kept,

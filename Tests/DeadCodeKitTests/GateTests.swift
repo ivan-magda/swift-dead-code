@@ -1,4 +1,5 @@
 import DeadCodeKit
+import Foundation
 import Testing
 
 @Suite
@@ -72,7 +73,9 @@ struct GateTests {
   @Test
   func aDependencyAClientImportsWithoutDeclaringItStays() throws {
     // given: App imports Base, which it gets only through Kit; Tool declares Core itself;
-    // Suite imports Parser, which it gets through Feed's declaration too.
+    // Suite imports Parser, which it gets through Feed's declaration too; Hub imports Shared,
+    // which it gets through both Left and Right; Viewer imports only Codec, which it gets
+    // only through Bridge.
     let project = try FixtureProject.copy("GatePackage")
     defer {
       project.remove()
@@ -80,12 +83,19 @@ struct GateTests {
     let imports = [
       "App": "import Kit\nimport Base\n", "Tool": "import Lib\nimport Core\n",
       "Suite": "import Feed\nimport Parser\n", "Feed": "import Web\nimport Parser\n",
+      "Hub": "import Left\nimport Right\nimport Shared\n", "Viewer": "import Codec\n",
+      "Bridge": "import Codec\n",
     ]
     let dependencies = [
       "App": ["Kit"], "Kit": ["Base"], "Tool": ["Lib", "Core"], "Lib": ["Core"],
       "Suite": ["Feed"], "Feed": ["Web", "Parser"], "Web": ["Parser"],
+      "Hub": ["Left", "Right"], "Left": ["Shared"], "Right": ["Shared"], "Viewer": ["Bridge"],
+      "Bridge": ["Codec"],
     ]
-    let names = ["App", "Kit", "Base", "Tool", "Lib", "Core", "Suite", "Feed", "Web", "Parser"]
+    let names = [
+      "App", "Kit", "Base", "Tool", "Lib", "Core", "Suite", "Feed", "Web", "Parser", "Hub", "Left",
+      "Right", "Shared", "Viewer", "Bridge", "Codec",
+    ]
     for name in names {
       try project.write(imports[name] ?? "import Foundation\n", to: "\(name)/\(name).swift")
     }
@@ -110,6 +120,41 @@ struct GateTests {
     #expect(!findings.contains(GateFinding(kind: .dependency, subject: "Kit Base")))
     #expect(findings.contains(GateFinding(kind: .dependency, subject: "Lib Core")))
     #expect(findings.contains(GateFinding(kind: .dependency, subject: "Web Parser")))
+    // Removing both of Hub's routes to Shared would break its import.
+    let routes = ["Left Shared", "Right Shared"].filter { subject in
+      findings.contains(GateFinding(kind: .dependency, subject: subject))
+    }
+    #expect(routes.count == 1)
+    #expect(!findings.contains(GateFinding(kind: .dependency, subject: "Viewer Bridge")))
+  }
+
+  @Test
+  func aHyphenatedTargetIsImportedByItsModuleName() throws {
+    // given: SwiftPM names the module of target My-Core My_Core.
+    let project = try FixtureProject.copy("GatePackage")
+    defer {
+      project.remove()
+    }
+    let manifest = try #require(project.read("Package.swift"))
+    try project.write(
+      manifest.replacingOccurrences(
+        of: #"dependencies: ["Kit", "Spare"]"#,
+        with: #"dependencies: ["Kit", "Spare", "My-Core"]"#
+      ) + #"package.targets.append(.target(name: "My-Core"))"# + "\n",
+      to: "Package.swift"
+    )
+    try project.write("public let core = 1\n", to: "Sources/My-Core/Core.swift")
+    let app = try #require(project.read("Sources/App/App.swift"))
+    try project.write("import My_Core\n" + app, to: "Sources/App/App.swift")
+    _ = try project.git(["add", "--all"])
+
+    // when
+    let model = try project.load()
+    let findings = try Gate(model: model, configuration: Configuration()).findings()
+
+    // then
+    #expect(model.target(named: "My-Core")?.moduleName == "My_Core")
+    #expect(!findings.contains(GateFinding(kind: .dependency, subject: "App My-Core")))
   }
 
   @Test
@@ -181,52 +226,31 @@ struct GateTests {
     #expect(findings.contains(GateFinding(kind: .file, subject: "docs/orphan-note.txt")))
   }
 
-  @Test(.enabled(if: Tools.hasXcodeGen))
-  func frameworksLoadedByNameAndConventionalFilesAreNotFindings() throws {
-    // given: the app dlopens Spare instead of importing it; git hooks and licenses are found
-    // by convention.
-    let project = try FixtureProject.copy("XcodeShop")
+  @Test
+  func aSystemLibraryModuleMapIsFoundByName() throws {
+    // given: SwiftPM reads a system library target's module.modulemap; no file names it.
+    let project = try FixtureProject.copy("GatePackage")
     defer {
       project.remove()
     }
-    let app = try #require(project.read("Shop/ShopApp.swift"))
-    let loader = "\nlet spare = dlopen(\"Frameworks/Spare.framework/Spare\", 0)\n"
-    try project.write(app + loader, to: "Shop/ShopApp.swift")
-    try project.write("#!/bin/sh\n", to: ".githooks/pre-commit")
-    try project.write("Commercial terms.\n", to: "LICENSE-COMMERCIAL")
-    try project.write("PODFILE CHECKSUM: 0\n", to: "Pods/Manifest.lock")
-    try project.write("PODFILE CHECKSUM: 0\n", to: "Vendor/Kit/Pods/Manifest.lock")
+    let manifest = try #require(project.read("Package.swift"))
+    try project.write(
+      manifest + #"package.targets.append(.systemLibrary(name: "CSQLite"))"# + "\n",
+      to: "Package.swift"
+    )
+    try project.write(
+      "module CSQLite [system] {\n  link \"sqlite3\"\n}\n",
+      to: "Sources/CSQLite/module.modulemap"
+    )
     _ = try project.git(["add", "--all"])
 
     // when
     let findings = try Gate(model: try project.load(), configuration: Configuration()).findings()
 
     // then
-    #expect(!findings.contains(GateFinding(kind: .dependency, subject: "Shop Spare")))
-    #expect(!findings.contains(GateFinding(kind: .file, subject: ".githooks/pre-commit")))
-    #expect(!findings.contains(GateFinding(kind: .file, subject: "LICENSE-COMMERCIAL")))
-    #expect(!findings.contains(GateFinding(kind: .file, subject: "Pods/Manifest.lock")))
-    #expect(!findings.contains(GateFinding(kind: .file, subject: "Vendor/Kit/Pods/Manifest.lock")))
-    #expect(findings.contains(GateFinding(kind: .file, subject: "docs/unused-mockup.png")))
-  }
-
-  @Test(.enabled(if: Tools.hasXcodeGen))
-  func filesARunScriptPhaseNamesAreNotFindings() throws {
-    // given: without project.yml, only Shop's Run Script phase names its script and its input.
-    let project = try FixtureProject.copy("XcodeShop")
-    defer {
-      project.remove()
-    }
-    _ = try project.git(["rm", "--quiet", "--force", "project.yml"])
-
-    // when
-    let findings = try Gate(model: try project.load(), configuration: Configuration()).findings()
-
-    // then
-    let script = GateFinding(kind: .file, subject: "BuildPhases/stamp-build-number.sh")
-    #expect(!findings.contains(script))
-    #expect(!findings.contains(GateFinding(kind: .file, subject: "Config/release-version.txt")))
-    #expect(findings.contains(GateFinding(kind: .file, subject: "docs/unused-mockup.png")))
+    #expect(
+      !findings.contains(GateFinding(kind: .file, subject: "Sources/CSQLite/module.modulemap"))
+    )
   }
 
   @Test
@@ -246,6 +270,116 @@ struct GateTests {
     #expect(gate.report(for: first) == gate.report(for: second))
     #expect(try gate.json(for: first) == gate.json(for: second))
     #expect(try gate.json(for: first).contains(#""subject" : "App Spare""#))
+  }
+}
+
+@Suite
+struct XcodeGateTests {
+  @Test(.enabled(if: Tools.hasXcodeGen))
+  func frameworksLoadedByNameAndConventionalFilesAreNotFindings() throws {
+    // given: the app dlopens Spare instead of importing it; git hooks and licenses are found
+    // by convention, and Core Data models in the app bundle.
+    let project = try FixtureProject.copy("XcodeShop")
+    defer {
+      project.remove()
+    }
+    let app = try #require(project.read("Shop/ShopApp.swift"))
+    let loader = "\nlet spare = dlopen(\"Frameworks/Spare.framework/Spare\", 0)\n"
+    try project.write(app + loader, to: "Shop/ShopApp.swift")
+    try project.write("#!/bin/sh\n", to: ".githooks/pre-commit")
+    try project.write("Commercial terms.\n", to: "LICENSE-COMMERCIAL")
+    try project.write("PODFILE CHECKSUM: 0\n", to: "Pods/Manifest.lock")
+    try project.write("PODFILE CHECKSUM: 0\n", to: "Vendor/Kit/Pods/Manifest.lock")
+    let dataModel = "Shop/Store.xcdatamodeld"
+    try project.write("<plist/>\n", to: "\(dataModel)/.xccurrentversion")
+    try project.write("<model/>\n", to: "\(dataModel)/Store 2.xcdatamodel/contents")
+    _ = try project.git(["add", "--all"])
+
+    // when
+    let findings = try Gate(model: try project.load(), configuration: Configuration()).findings()
+
+    // then
+    #expect(!findings.contains(GateFinding(kind: .dependency, subject: "Shop Spare")))
+    #expect(!findings.contains(GateFinding(kind: .file, subject: ".githooks/pre-commit")))
+    #expect(!findings.contains(GateFinding(kind: .file, subject: "LICENSE-COMMERCIAL")))
+    #expect(!findings.contains(GateFinding(kind: .file, subject: "Pods/Manifest.lock")))
+    #expect(!findings.contains(GateFinding(kind: .file, subject: "Vendor/Kit/Pods/Manifest.lock")))
+    #expect(!findings.contains(GateFinding(kind: .file, subject: "\(dataModel)/.xccurrentversion")))
+    #expect(
+      !findings.contains(
+        GateFinding(kind: .file, subject: "\(dataModel)/Store 2.xcdatamodel/contents")
+      )
+    )
+    #expect(findings.contains(GateFinding(kind: .file, subject: "docs/unused-mockup.png")))
+  }
+
+  @Test(.enabled(if: Tools.hasXcodeGen))
+  func aFrameworkTheBridgingHeaderImportsIsUsed() throws {
+    // given: Shop uses Spare only through its bridging header.
+    let project = try FixtureProject.copy("XcodeShop")
+    defer {
+      project.remove()
+    }
+    let spec = try #require(project.read("project.yml"))
+    let setting = "    settings:\n      base:\n        SWIFT_OBJC_BRIDGING_HEADER: Shop/Bridge.h\n"
+    try project.write(
+      spec.replacingOccurrences(
+        of: "    info:\n      path: Shop/Info.plist",
+        with: setting + "    info:\n      path: Shop/Info.plist"
+      ),
+      to: "project.yml"
+    )
+    try project.write("#import <Spare/Spare.h>\n", to: "Shop/Bridge.h")
+    try project.generateXcodeProject()
+
+    // when
+    let findings = try Gate(model: try project.load(), configuration: Configuration()).findings()
+
+    // then
+    #expect(!findings.contains(GateFinding(kind: .dependency, subject: "Shop Spare")))
+  }
+
+  @Test(.enabled(if: Tools.hasXcodeGen))
+  func aDependencyHasTheModuleNameItsTargetBuilds() throws {
+    // given: a project-level setting names every module after its target.
+    let project = try FixtureProject.copy("XcodeShop")
+    defer {
+      project.remove()
+    }
+    let spec = try #require(project.read("project.yml"))
+    let setting = "settings:\n  base:\n    PRODUCT_MODULE_NAME: $(TARGET_NAME)Module\n"
+    try project.write(
+      spec.replacingOccurrences(of: "packages:", with: setting + "packages:"),
+      to: "project.yml"
+    )
+    try project.generateXcodeProject()
+
+    // when
+    let model = try project.load()
+
+    // then
+    let spare = model.target(named: "Shop")?.dependencies.first { $0.name == "Spare" }
+    #expect(model.target(named: "Spare")?.moduleName == "SpareModule")
+    #expect(spare?.moduleNames == ["SpareModule"])
+  }
+
+  @Test(.enabled(if: Tools.hasXcodeGen))
+  func filesARunScriptPhaseNamesAreNotFindings() throws {
+    // given: without project.yml, only Shop's Run Script phase names its script and its input.
+    let project = try FixtureProject.copy("XcodeShop")
+    defer {
+      project.remove()
+    }
+    _ = try project.git(["rm", "--quiet", "--force", "project.yml"])
+
+    // when
+    let findings = try Gate(model: try project.load(), configuration: Configuration()).findings()
+
+    // then
+    let script = GateFinding(kind: .file, subject: "BuildPhases/stamp-build-number.sh")
+    #expect(!findings.contains(script))
+    #expect(!findings.contains(GateFinding(kind: .file, subject: "Config/release-version.txt")))
+    #expect(findings.contains(GateFinding(kind: .file, subject: "docs/unused-mockup.png")))
   }
 
   @Test(.enabled(if: Tools.hasXcodeGen))
