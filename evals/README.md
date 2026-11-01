@@ -33,6 +33,7 @@ it proposes no live code for deletion, and that the project needs nothing but a
 | `deadcode.yml` | the configuration the project needed |
 | `labels.md` | every finding with its verdict and evidence |
 | `verification.md` | the researcher's report and the build and test results of the deletions |
+| `deletions.patch` | the applied deletions, as `git format-patch` output against the recorded commit |
 | `summary.json` | commit, counts per verdict, timings, for REPORT.md |
 
 [`swift-claw/parity.md`](swift-claw/parity.md) compares the tool with the scripts it replaces.

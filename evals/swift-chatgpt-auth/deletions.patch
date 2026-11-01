@@ -1,0 +1,52 @@
+From 563a4ab45a2a1025b266c59f86c9469625736915 Mon Sep 17 00:00:00 2001
+From: Ivan Magda <imagda15@gmail.com>
+Date: Sat, 31 Oct 2026 00:32:24 +0300
+Subject: [PATCH] eval: delete unused ScriptedHTTPClient request recording
+
+---
+ Tests/ChatGPTAuthTests/TestHelpers.swift | 12 +-----------
+ 1 file changed, 1 insertion(+), 11 deletions(-)
+
+diff --git a/Tests/ChatGPTAuthTests/TestHelpers.swift b/Tests/ChatGPTAuthTests/TestHelpers.swift
+index 51b17fd62bcec3caeb21f12cf46493d362f8f374..2871b4e6b61e7ab558a21e1f0d03d2f59ee3a895 100644
+--- a/Tests/ChatGPTAuthTests/TestHelpers.swift
++++ b/Tests/ChatGPTAuthTests/TestHelpers.swift
+@@ -26,7 +26,7 @@ func captureError<E: Error, R>(
+   }
+ }
+ 
+-/// A transport that replies from a fixed script, in call order, and records every request it saw.
++/// A transport that replies from a fixed script, in call order.
+ /// An actor so the credential source's concurrent callers can share one safely.
+ actor ScriptedHTTPClient: HTTPExecuting {
+   enum Reply: Sendable {
+@@ -37,14 +37,12 @@ actor ScriptedHTTPClient: HTTPExecuting {
+ 
+   private var replies: [Reply]
+   private var index = 0
+-  private var seen: [HTTPRequest] = []
+ 
+   init(_ replies: [Reply]) {
+     self.replies = replies
+   }
+ 
+   func execute(_ request: HTTPRequest) async throws -> HTTPResult {
+-    seen.append(request)
+     guard index < replies.count else {
+       throw HTTPTransportFailure(disposition: .mayHaveBeenSent, safeMessage: "no scripted reply")
+     }
+@@ -59,14 +57,6 @@ actor ScriptedHTTPClient: HTTPExecuting {
+       throw CancellationError()
+     }
+   }
+-
+-  func requests() -> [HTTPRequest] {
+-    seen
+-  }
+-
+-  func requestCount() -> Int {
+-    seen.count
+-  }
+ }
+ 
+ // MARK: - Manual Clock

@@ -2,6 +2,8 @@
 
 The group is applied in a separate clone, `swift-dead-code-work/element-x-verify` (branch
 `deadcode-eval`), so the scans of `swift-dead-code-work/element-x` see the original code.
+The applied commits are saved in [`deletions.patch`](deletions.patch): `git am` it on the
+recorded commit (with `GIT_LFS_SKIP_SMUDGE=1`, as the media are in Git LFS). The work clones were removed on 2026-11-01.
 
 ## The group: 7 declarations nothing uses (TRUE, from `scan`)
 

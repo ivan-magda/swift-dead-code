@@ -22,7 +22,8 @@ Opened and matched: the iPhoneSimulator SDK's `Speech.swiftinterface` (`public i
 AVFoundation`, `@_exported public import Speech`), `SFSpeechRecognizer.h:8`
 (`#import <AVFoundation/AVFoundation.h>`) and the module map's `export *`.
 
-**Applied** in the clone on branch `deadcode-eval` (commit `a792a4d`): `git apply` of the
+**Applied** in the clone on branch `deadcode-eval` (commit `a792a4d`, saved in
+[`deletions.patch`](deletions.patch)): `git apply` of the
 generated `prune.patch`, 2 lines removed.
 
 | Check | Command | Result |

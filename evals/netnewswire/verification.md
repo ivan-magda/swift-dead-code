@@ -3,6 +3,8 @@
 The groups are applied in a separate clone, `swift-dead-code-work/netnewswire-verify` (branch
 `deadcode-eval`, with the same generated `SecretKey.swift`), so the scans of
 `swift-dead-code-work/netnewswire` see the original code.
+The applied commits are saved in [`deletions.patch`](deletions.patch): `git am --3way` it on the
+recorded commit (the deleted PNG is named by its blob, not included). The work clones were removed on 2026-11-01.
 
 ## Group 1: private methods nothing calls (from `scan`)
 

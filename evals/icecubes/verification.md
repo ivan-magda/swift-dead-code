@@ -2,6 +2,8 @@
 
 Both groups are applied in a separate clone, `swift-dead-code-work/icecubes-verify` (branch
 `deadcode-eval`), so the scans of `swift-dead-code-work/icecubes` see the original code.
+The applied commits are saved in [`deletions.patch`](deletions.patch): `git am` it on the
+recorded commit. The work clones were removed on 2026-11-01.
 
 ## Group 1: target dependencies no file imports (TRUE, from `check`)
 

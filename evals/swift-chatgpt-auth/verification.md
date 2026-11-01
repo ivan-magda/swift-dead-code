@@ -17,7 +17,8 @@
 
 Each cited line was opened and matched.
 
-**Applied** in the clone on branch `deadcode-eval` (commit `563a4ab`): both methods, `seen`
+**Applied** in the clone on branch `deadcode-eval` (commit `563a4ab`, saved in
+[`deletions.patch`](deletions.patch)): both methods, `seen`
 and its `append`, and the doc comment's last clause; 10 lines removed, 1 changed.
 
 | Check | Command | Result |
