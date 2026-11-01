@@ -79,6 +79,8 @@ struct DumpedPackage: Decodable {
     var exclude: [String]
     /// Explicit source paths; empty means the whole target directory.
     var sources: [String]
+    /// Resource paths: SwiftPM compiles nothing inside them.
+    var resources: [String]
     var dependencies: [Dependency]
 
     init(from decoder: any Decoder) throws {
@@ -88,6 +90,8 @@ struct DumpedPackage: Decodable {
       path = try container.decodeIfPresent(String.self, forKey: .path)
       exclude = try container.decodeIfPresent([String].self, forKey: .exclude) ?? []
       sources = try container.decodeIfPresent([String].self, forKey: .sources) ?? []
+      resources =
+        try container.decodeIfPresent([Resource].self, forKey: .resources)?.map(\.path) ?? []
       dependencies = try container.decodeIfPresent([Dependency].self, forKey: .dependencies) ?? []
     }
 
@@ -97,7 +101,12 @@ struct DumpedPackage: Decodable {
       case path
       case exclude
       case sources
+      case resources
       case dependencies
+    }
+
+    private struct Resource: Decodable {
+      var path: String
     }
   }
 
@@ -283,7 +292,7 @@ private extension SwiftPackageAdapter {
     files: [String]
   ) -> [String] {
     let base = directory.isEmpty ? "" : directory + "/"
-    let excluded = target.exclude.map { base + TextFiles.normalize($0) }
+    let excluded = (target.exclude + target.resources).map { base + TextFiles.normalize($0) }
     let included = target.sources.map { base + TextFiles.normalize($0) }
     return files.filter { path in
       guard path.hasPrefix(base) else {

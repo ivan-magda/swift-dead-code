@@ -1,4 +1,5 @@
 @testable import DeadCodeKit
+import Foundation
 import Testing
 
 @Suite
@@ -60,6 +61,29 @@ struct ImportScannerTests {
     #expect(imports.map(\.module) == ["Foundation", "App", "Dispatch", "Kit"])
     #expect(imports.map(\.line) == [1, 2, 3, 4])
     #expect(imports[1].text == "@testable import App")
+  }
+}
+
+@Suite
+struct SourceIndexTests {
+  @Test
+  func countsTheLinesOfAFileWithWindowsLineEndings() throws {
+    // given: Swift reads "\r\n" as one Character, which is not "\n".
+    let root = FileManager.default.temporaryDirectory
+      .appendingPathComponent("swift-dead-code-tests-\(UUID().uuidString)")
+    defer {
+      try? FileManager.default.removeItem(at: root)
+    }
+    try TextFiles.write(
+      "let first = 1\r\nlet second = 2\r\n",
+      to: root.appendingPathComponent("A.swift")
+    )
+
+    // when
+    let lines = SourceIndex(root: root).lineCount(of: "A.swift")
+
+    // then: two lines and the empty one after the last line break.
+    #expect(lines == 3)
   }
 }
 

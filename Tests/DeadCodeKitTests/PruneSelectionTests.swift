@@ -21,13 +21,23 @@ struct PruneSelectionTests {
   }
 
   @Test
-  func allSkipsPathsTheConfigurationExcludes() throws {
-    // given: generated code the project excludes from every check.
+  func allSkipsExcludedPathsAndResources() throws {
+    // given: generated code the project excludes from every check, and a Swift template the
+    // app copies as a resource, which SwiftPM does not compile.
     let project = try FixtureProject.copy("GatePackage")
     defer {
       project.remove()
     }
     try project.write("import Kit\n", to: "Sources/App/Generated/Strings.swift")
+    let manifest = try #require(project.read("Package.swift"))
+    try project.write(
+      manifest.replacingOccurrences(
+        of: #"resources: [.process("Media.xcassets")]"#,
+        with: #"resources: [.process("Media.xcassets"), .copy("Templates")]"#
+      ),
+      to: "Package.swift"
+    )
+    try project.write("import Kit\n", to: "Sources/App/Templates/Model.swift")
     _ = try project.git(["add", "--all"])
     var configuration = Configuration()
     configuration.exclude = [Glob("Sources/App/Generated/**")]
@@ -42,8 +52,9 @@ struct PruneSelectionTests {
   }
 
   @Test
-  func baseSelectsAChangedFileWhoseNameGitWouldQuote() throws {
-    // given: git quotes non-ASCII paths in its default output.
+  func baseSelectsRenamedFilesAndNamesGitWouldQuote() throws {
+    // given: git quotes non-ASCII paths in its default output, and reports an edited file
+    // under a new name as a rename.
     let project = try FixtureProject.copy("GatePackage")
     defer {
       project.remove()
@@ -53,13 +64,48 @@ struct PruneSelectionTests {
       "-c", "core.hooksPath=/dev/null", "commit", "--quiet", "-m", "base",
     ])
     try project.write("import Kit\n", to: "Sources/App/Über.swift")
+    _ = try project.git(["mv", "Sources/Kit/Kit.swift", "Sources/Kit/Toolkit.swift"])
+    let kit = try #require(project.read("Sources/Kit/Toolkit.swift"))
+    try project.write(kit + "// edited\n", to: "Sources/Kit/Toolkit.swift")
     _ = try project.git(["add", "--all"])
 
     // when
     let files = try Self.pruner(project) { $0.base = "HEAD" }.filesToCheck()
 
     // then
-    #expect(files == ["Sources/App/Über.swift"])
+    #expect(files == ["Sources/App/Über.swift", "Sources/Kit/Toolkit.swift"])
+  }
+
+  @Test
+  func theCopyHoldsTheFilesThatLinksOutOfTheProjectPointAt() throws {
+    // given: a source that is an absolute link to a file outside the project, such as the
+    // original checkout; writing through it would change that file.
+    let directory = FileManager.default.temporaryDirectory
+      .appendingPathComponent("swift-dead-code-tests-\(UUID().uuidString)")
+    defer {
+      try? FileManager.default.removeItem(at: directory)
+    }
+    let outside = directory.appendingPathComponent("outside/Real.swift")
+    try TextFiles.write("let real = 1\n", to: outside)
+    let source = directory.appendingPathComponent("project")
+    try FileManager.default.createDirectory(
+      at: source.appendingPathComponent("Sources"),
+      withIntermediateDirectories: true
+    )
+    try FileManager.default.createSymbolicLink(
+      at: source.appendingPathComponent("Sources/Linked.swift"),
+      withDestinationURL: outside
+    )
+    let copy = directory.appendingPathComponent("copy")
+
+    // when
+    try WorkingCopy(source: source, copy: copy).refresh()
+
+    // then
+    let copied = try FileManager.default.attributesOfItem(
+      atPath: copy.appendingPathComponent("Sources/Linked.swift").path
+    )
+    #expect(copied[.type] as? FileAttributeType == .typeRegular)
   }
 
   @Test

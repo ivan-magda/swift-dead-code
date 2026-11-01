@@ -239,6 +239,7 @@ private extension PruneWorkspace {
 // MARK: - Builds
 
 private extension PruneWorkspace {
+  /// Builds every configured build; an import one of them needs stays.
   func buildPackage(target: String?) throws -> CommandResult {
     var arguments: [String]
     if let target {
@@ -253,8 +254,13 @@ private extension PruneWorkspace {
       arguments += ["--scratch-path", work.appendingPathComponent("build").path]
       log = work.appendingPathComponent("build.log")
     }
-    arguments += configuration.project.buildArguments
-    return try runner.run(Command("swift", arguments, in: copy))
+    var combined = CommandResult(status: 0, standardOutput: "", standardError: "")
+    let builder = ProjectBuilder(model: model, configuration: configuration, runner: runner)
+    for variant in builder.variants {
+      let variantArguments = configuration.project.buildArguments + variant.buildArguments
+      combined.append(try runner.run(Command("swift", arguments + variantArguments, in: copy)))
+    }
+    return combined
   }
 
   /// Builds every configured scheme; an import a scheme needs stays.
@@ -272,16 +278,9 @@ private extension PruneWorkspace {
             derivedData: work.appendingPathComponent("DerivedData")
           )
           + ["OTHER_SWIFT_FLAGS=$(inherited) -continue-building-after-errors"]
-        let result = try builder.runScheme(
-          arguments: arguments,
-          forTesting: variant.forTesting,
-          in: copy
+        combined.append(
+          try builder.runScheme(arguments: arguments, forTesting: variant.forTesting, in: copy)
         )
-        combined.standardOutput += result.standardOutput
-        combined.standardError += result.standardError
-        if !result.succeeded {
-          combined.status = result.status
-        }
       }
     }
     return combined

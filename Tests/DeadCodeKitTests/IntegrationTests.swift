@@ -125,6 +125,83 @@ struct IntegrationTests {
   }
 
   @Test(.timeLimit(.minutes(10)))
+  func pruneKeepsAnImportAFileReachesABorrowedModuleThrough() throws {
+    // given: Twin.swift imports Facade, which re-exports Helper, for Helper's `shouted`;
+    // without the import it compiles only by borrowing Greeter.swift's `import Helper`.
+    let project = try FixtureProject.copy("ScanPackage")
+    defer {
+      project.remove()
+    }
+    let manifest = try #require(project.read("Package.swift"))
+    try project.write(
+      manifest.replacingOccurrences(
+        of: #".target(name: "Lib", dependencies: ["Helper"]),"#,
+        with: #".target(name: "Facade", dependencies: ["Helper"]),"#
+          + #"\#n    .target(name: "Lib", dependencies: ["Helper", "Facade"]),"#
+      ),
+      to: "Package.swift"
+    )
+    try project.write("@_exported import Helper\n", to: "Sources/Facade/Facade.swift")
+    let twin = try #require(project.read("Sources/Lib/Twin.swift"))
+    try project.write(
+      twin.replacingOccurrences(of: "import Helper\n", with: "import Facade\n"),
+      to: "Sources/Lib/Twin.swift"
+    )
+    _ = try project.git(["add", "--all"])
+    let configuration = Configuration()
+    var options = PruneOptions(work: project.scratch)
+    options.files = ["Sources/Lib/Twin.swift"]
+    options.lockName = Self.lockName
+
+    // when
+    let (_, removable) = try ImportPruner(
+      model: try project.load(configuration),
+      configuration: configuration,
+      options: options,
+      progress: { _ in },
+      output: { _ in }
+    )
+    .run()
+
+    // then
+    #expect(removable == 0)
+  }
+
+  @Test(.timeLimit(.minutes(10)))
+  func pruneBuildsEveryConfiguredBuild() throws {
+    // given: Featured.swift uses Helper only when the second build defines FEATURE.
+    let project = try FixtureProject.copy("ScanPackage")
+    defer {
+      project.remove()
+    }
+    try project.write(
+      "import Helper\n\n#if FEATURE\n  public let featured = HelperThing().label\n#endif\n",
+      to: "Sources/Lib/Featured.swift"
+    )
+    _ = try project.git(["add", "--all"])
+    var configuration = Configuration()
+    var feature = BuildVariant(name: "feature")
+    feature.buildArguments = ["-Xswiftc", "-DFEATURE"]
+    configuration.builds = [BuildVariant(name: "default"), feature]
+    var options = PruneOptions(work: project.scratch)
+    options.files = ["Sources/Lib/Featured.swift"]
+    options.lockName = Self.lockName
+
+    // when
+    let (_, removable) = try ImportPruner(
+      model: try project.load(configuration),
+      configuration: configuration,
+      options: options,
+      progress: { _ in },
+      output: { _ in }
+    )
+    .run()
+
+    // then
+    #expect(removable == 0)
+  }
+
+  @Test(.timeLimit(.minutes(10)))
   func checkOnlyFailsWhenATargetCouldNotBeChecked() throws {
     // given: Helper, which Lib depends on, no longer compiles.
     let project = try FixtureProject.copy("ScanPackage")

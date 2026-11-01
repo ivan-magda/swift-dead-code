@@ -75,7 +75,8 @@ struct GateTests {
     // given: App imports Base, which it gets only through Kit; Tool declares Core itself;
     // Suite imports Parser, which it gets through Feed's declaration too; Hub imports Shared,
     // which it gets through both Left and Right; Viewer imports only Codec, which it gets
-    // only through Bridge.
+    // only through Bridge; PhoneApp imports Store only through KitIOS, whose twin KitMac
+    // (the same module, Gadget) declares Store too.
     let project = try FixtureProject.copy("GatePackage")
     defer {
       project.remove()
@@ -84,17 +85,18 @@ struct GateTests {
       "App": "import Kit\nimport Base\n", "Tool": "import Lib\nimport Core\n",
       "Suite": "import Feed\nimport Parser\n", "Feed": "import Web\nimport Parser\n",
       "Hub": "import Left\nimport Right\nimport Shared\n", "Viewer": "import Codec\n",
-      "Bridge": "import Codec\n",
+      "Bridge": "import Codec\n", "PhoneApp": "import Gadget\nimport Store\n",
     ]
     let dependencies = [
       "App": ["Kit"], "Kit": ["Base"], "Tool": ["Lib", "Core"], "Lib": ["Core"],
       "Suite": ["Feed"], "Feed": ["Web", "Parser"], "Web": ["Parser"],
       "Hub": ["Left", "Right"], "Left": ["Shared"], "Right": ["Shared"], "Viewer": ["Bridge"],
-      "Bridge": ["Codec"],
+      "Bridge": ["Codec"], "PhoneApp": ["KitIOS"], "KitIOS": ["Store"], "KitMac": ["Store"],
     ]
+    let modules = ["KitIOS": "Gadget", "KitMac": "Gadget"]
     let names = [
       "App", "Kit", "Base", "Tool", "Lib", "Core", "Suite", "Feed", "Web", "Parser", "Hub", "Left",
-      "Right", "Shared", "Viewer", "Bridge", "Codec",
+      "Right", "Shared", "Viewer", "Bridge", "Codec", "PhoneApp", "KitIOS", "KitMac", "Store",
     ]
     for name in names {
       try project.write(imports[name] ?? "import Foundation\n", to: "\(name)/\(name).swift")
@@ -102,11 +104,16 @@ struct GateTests {
     let targets = names.map { name in
       ProjectTarget(
         name: name,
+        moduleName: modules[name],
         role: .product,
         productType: .framework,
         sourceFiles: ["\(name)/\(name).swift"],
         dependencies: (dependencies[name] ?? []).map { dependency in
-          TargetDependency(name: dependency, moduleNames: [dependency], kind: .target)
+          TargetDependency(
+            name: dependency,
+            moduleNames: [modules[dependency] ?? dependency],
+            kind: .target
+          )
         },
         manifestPath: "Package.swift"
       )
@@ -126,6 +133,7 @@ struct GateTests {
     }
     #expect(routes.count == 1)
     #expect(!findings.contains(GateFinding(kind: .dependency, subject: "Viewer Bridge")))
+    #expect(!findings.contains(GateFinding(kind: .dependency, subject: "KitIOS Store")))
   }
 
   @Test
@@ -315,7 +323,7 @@ struct XcodeGateTests {
 
   @Test(.enabled(if: Tools.hasXcodeGen))
   func aFrameworkTheBridgingHeaderImportsIsUsed() throws {
-    // given: Shop uses Spare only through its bridging header.
+    // given: Shop uses Spare only through a header its bridging header includes.
     let project = try FixtureProject.copy("XcodeShop")
     defer {
       project.remove()
@@ -329,7 +337,8 @@ struct XcodeGateTests {
       ),
       to: "project.yml"
     )
-    try project.write("#import <Spare/Spare.h>\n", to: "Shop/Bridge.h")
+    try project.write("#import \"Legacy.h\"\n", to: "Shop/Bridge.h")
+    try project.write("#import <Spare/Spare.h>\n", to: "Shop/Legacy.h")
     try project.generateXcodeProject()
 
     // when

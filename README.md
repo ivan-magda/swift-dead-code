@@ -176,7 +176,8 @@ How the checks decide:
 - **Dependencies.** Imports are read with SwiftSyntax in every `#if` branch, so a dependency
   used on one platform counts. `@_exported`, `@testable`, `@_spi`, access-level and scoped
   imports count, `#externalMacro(module:)` counts for macro targets, and Objective-C sources'
-  `@import` and `#import <Module/...>` count, in an Xcode target's bridging header too. Xcode
+  `@import` and `#import <Module/...>` count, in an Xcode target's bridging header too, and in
+  the headers such files include by a path relative to themselves. Xcode
   app extensions, apps and bundles are embedded rather than imported, so they are not
   checked; neither are plugin targets. A framework target that a string literal of the
   dependent target names counts too: that is how an embedded, unlinked framework is loaded

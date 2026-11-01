@@ -7,21 +7,17 @@ public struct Command: Sendable, Equatable {
   public var workingDirectory: URL
   /// Variables added to the inherited environment.
   public var environment: [String: String]
-  /// Text written to the program's standard input.
-  public var input: String?
 
   public init(
     _ executable: String,
     _ arguments: [String],
     in workingDirectory: URL,
-    environment: [String: String] = [:],
-    input: String? = nil
+    environment: [String: String] = [:]
   ) {
     self.executable = executable
     self.arguments = arguments
     self.workingDirectory = workingDirectory
     self.environment = environment
-    self.input = input
   }
 
   /// The command as a shell user would type it, for messages.
@@ -44,6 +40,15 @@ public struct CommandResult: Sendable, Equatable {
 
   public var succeeded: Bool {
     status == 0
+  }
+
+  /// Adds another run's output; a failure of either makes the whole a failure.
+  mutating func append(_ other: CommandResult) {
+    standardOutput += other.standardOutput
+    standardError += other.standardError
+    if !other.succeeded {
+      status = other.status
+    }
   }
 }
 
@@ -82,17 +87,12 @@ public struct ProcessRunner: CommandRunning {
     }
     process.standardOutput = output
     process.standardError = error
-    let input = Pipe()
-    process.standardInput = command.input == nil ? FileHandle.nullDevice : input
+    process.standardInput = FileHandle.nullDevice
 
     do {
       try process.run()
     } catch {
       throw DeadCodeError.usage("cannot run `\(command.displayString)`: \(error)")
-    }
-    if let text = command.input {
-      input.fileHandleForWriting.write(Data(text.utf8))
-      try input.fileHandleForWriting.close()
     }
     process.waitUntilExit()
     try output.close()

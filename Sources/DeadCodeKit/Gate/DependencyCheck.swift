@@ -4,7 +4,8 @@ import Foundation
 ///
 /// Imports count in every `#if` branch, so a dependency used only on another platform stays.
 /// `#externalMacro(module:)` counts as a use of its module, and an Objective-C source's
-/// `@import` or `#import <Module/...>` counts too. Plugin targets are skipped: their
+/// `@import` or `#import <Module/...>` counts too, as do those of the headers it includes by a
+/// relative path. Plugin targets are skipped: their
 /// dependencies are tools they run, never modules they import. A dependency also stays when
 /// removing it would cut a target that has it, directly or through others, off a module that
 /// target imports without declaring it. Each dependency is judged with the ones already found
@@ -95,8 +96,12 @@ private extension DependencyCheck {
       for dependency in current.dependencies
       where !removed.contains(Edge(target: current.name, dependency: dependency.name)) {
         modules.formUnion(dependency.moduleNames)
+        // A target dependency names one target; twins share its module name.
         for next in model.targets
-        where !visited.contains(next.name) && dependency.moduleNames.contains(next.moduleName) {
+        where !visited.contains(next.name)
+          && (dependency.kind == .target
+            ? next.name == dependency.name : dependency.moduleNames.contains(next.moduleName))
+        {
           visited.insert(next.name)
           stack.append(next)
         }
@@ -126,12 +131,15 @@ private extension DependencyCheck {
   }
 
   static let objectiveCImport = try? NSRegularExpression(
-    pattern: #"^\s*(?:@import\s+(\w+)|#(?:import|include)\s+<(\w+)/)"#,
+    pattern: #"^\s*(?:@import\s+(\w+)|#(?:import|include)\s+(?:<(\w+)/|"([^"\n]+)"))"#,
     options: [.anchorsMatchLines]
   )
 
-  static func importedModules(at url: URL) -> Set<String> {
-    guard let text = TextFiles.read(url) else {
+  /// The modules a file imports; for a C-family file, also those of the headers it includes
+  /// by a path relative to itself, such as `Foo.m` its `Foo.h` or a bridging header the
+  /// headers it lists.
+  static func importedModules(at url: URL, visited: Set<URL> = []) -> Set<String> {
+    guard !visited.contains(url), let text = TextFiles.read(url) else {
       return []
     }
     if url.pathExtension == "swift" {
@@ -147,6 +155,11 @@ private extension DependencyCheck {
         if let found = Range(match.range(at: group), in: text) {
           modules.insert(String(text[found]))
         }
+      }
+      if let header = Range(match.range(at: 3), in: text) {
+        let included = url.deletingLastPathComponent()
+          .appendingPathComponent(String(text[header])).standardizedFileURL
+        modules.formUnion(importedModules(at: included, visited: visited.union([url])))
       }
     }
     return modules

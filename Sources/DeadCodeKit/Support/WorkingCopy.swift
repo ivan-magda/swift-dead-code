@@ -22,7 +22,9 @@ public struct WorkingCopy: Sendable {
   /// Brings the copy up to date with the working tree.
   public func refresh() throws {
     try FileManager.default.createDirectory(at: copy, withIntermediateDirectories: true)
-    var arguments = ["-a", "--delete"]
+    // A link out of the project becomes a file, so writing into the copy never reaches the
+    // working tree through it.
+    var arguments = ["-a", "--delete", "--copy-unsafe-links"]
     for directory in Self.excludedDirectories {
       arguments.append("--exclude=\(directory)")
     }

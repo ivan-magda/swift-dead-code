@@ -79,3 +79,8 @@ script; `--check-only` on the same three files prints the same line and exits 0;
 saved `all.json` and `prod.json` gives a byte-identical `report.md`. swift-claw has no
 `exclude` paths and SwiftPM builds cover every target, so the pruner's new selection rules
 cannot change its candidates.
+
+After the second review pass the same three checks are unchanged. Its pruner changes (every
+configured build; every import removed from a file that fails the strict check goes back) do
+not apply here: the configuration has one build, and the parity runs removed nothing, so no
+strict check ran.

@@ -39,7 +39,6 @@ public final class SourceIndex {
   fileprivate struct ParsedFile {
     var tree: SourceFileSyntax
     var converter: SourceLocationConverter
-    var text: String
     var lineCount: Int
   }
 
@@ -54,11 +53,6 @@ public final class SourceIndex {
 
   public init(root: URL) {
     self.root = root
-  }
-
-  /// The source text of a file, or nil if it is gone.
-  public func text(of path: String) -> String? {
-    parsed(path)?.text
   }
 
   /// The number of lines in a file, or nil if it is gone.
@@ -133,13 +127,12 @@ private extension SourceIndex {
     var parsed: ParsedFile?
     if let text = TextFiles.read(root.appendingPathComponent(path)) {
       let tree = Parser.parse(source: text)
+      let converter = SourceLocationConverter(fileName: path, tree: tree)
+      // The parser's line count: Swift reads "\r\n" as one Character, not "\n".
       parsed = ParsedFile(
         tree: tree,
-        converter: SourceLocationConverter(fileName: path, tree: tree),
-        text: text,
-        lineCount: text.reduce(1) { count, character in
-          character == "\n" ? count + 1 : count
-        }
+        converter: converter,
+        lineCount: converter.location(for: tree.endPosition).line
       )
     }
     files[path] = parsed

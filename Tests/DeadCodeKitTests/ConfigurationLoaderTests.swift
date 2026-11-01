@@ -70,6 +70,22 @@ struct ConfigurationLoaderTests {
   }
 
   @Test
+  func aPathThroughTheCurrentDirectoryNamesTheSameFile() throws {
+    // given: `--config ./.deadcode.yml`; the gate tells the configuration file from the files
+    // that mention others by its repository path.
+    let directory = ExampleConfigurationTests.examples
+
+    // when
+    let configuration = try ConfigurationLoader.load(
+      root: directory,
+      path: "./deadcode-swiftpm.yml"
+    )
+
+    // then
+    #expect(configuration.sourcePath == "deadcode-swiftpm.yml")
+  }
+
+  @Test
   func missingFileMeansDefaults() throws {
     // given
     let directory = FixtureProject.fixtures

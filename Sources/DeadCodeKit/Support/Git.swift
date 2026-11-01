@@ -22,12 +22,12 @@ public struct Git: Sendable {
     try existingFiles(listing: ["ls-files", "-z", "--cached", "--others", "--exclude-standard"])
   }
 
-  /// Files added or modified since `base`, relative to the project directory.
+  /// Files added, modified or renamed since `base`, relative to the project directory.
   public func changedFiles(since base: String) throws -> [String] {
     let output = try runner.output(
       of: Command(
         "git",
-        ["diff", "-z", "--name-only", "--relative", "--diff-filter=AM", base],
+        ["diff", "-z", "--name-only", "--relative", "--diff-filter=AMR", base],
         in: directory
       )
     )

@@ -74,6 +74,7 @@ public struct StarterConfiguration: Sendable {
     return lines.joined(separator: "\n") + "\n"
   }
 
+  /// Shared schemes of a project, or of a workspace and every project beside it.
   static func sharedSchemes(in container: URL) -> [String] {
     var directories = [container.appendingPathComponent("xcshareddata/xcschemes")]
     if container.pathExtension == "xcworkspace" {

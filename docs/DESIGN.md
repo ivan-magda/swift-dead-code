@@ -190,7 +190,8 @@ several candidates the tool stops and asks for `project.path`. A `project.yml` (
   first existing default root (`Sources`, `Source`, `src`, `srcs`; tests also look in
   `Tests`; plugins in `Plugins`), as swift-claw's gate did.
 - Source files: Swift files under the target directory, tracked or untracked-but-not-ignored
-  (`git ls-files --cached --others --exclude-standard`), minus the target's `exclude` paths.
+  (`git ls-files --cached --others --exclude-standard`), minus the target's `exclude` and
+  `resources` paths: SwiftPM compiles nothing inside a resource.
 - Dependencies: `byName`, `target`, `product` entries; a product accepts its name, its
   module aliases and the names configured in `module_names`. A target's module name is its
   name as an identifier (`My-Core` → `My_Core`), as SwiftPM spells it.
@@ -583,3 +584,25 @@ has a test that failed before it, and `DECISIONS.md` has the reasons.
    skipped; `--check-only` fails when it could not check a target; the configuration's
    `exclude` applies to `--base` and `--all`; `--base` reads git's paths with `-z`, so
    non-ASCII names survive; a scheme without a test action builds plainly, as in `scan`.
+
+A second, final pass of the same review on 2026-11-01 found 15 more points; 13 are fixed, each
+with a test that failed first:
+
+7. **Working copy**: rsync copies what a link out of the project points at
+   (`--copy-unsafe-links`), so writing into the copy never reaches another tree through it.
+8. **SwiftPM**: a target's `resources` are not sources; `prune-imports` builds every configured
+   build, as `scan` does.
+9. **Gate dependencies**: a target dependency leads only to its own target, not to every twin of
+   its module; a C-family file counts the imports of the headers it includes by a relative path.
+10. **`prune-imports`**: a file that fails the strict check gets back every import removed from
+    it, because the error names the defining module, which a removed import may only
+    re-export; `--base` takes renamed files.
+11. **Smaller fixes**: `--config ./.deadcode.yml` names the same file as `.deadcode.yml`; line
+    counts of files with Windows line endings; one shared-scheme lookup (with a workspace's
+    projects) for `init` and `scan`; the skill's base comparison names the files.
+12. **Removed**: `Command.input` and `SourceIndex.text(of:)`, which nothing used.
+
+Not fixed: files a multiplatform target compiles for only one platform (`platformFilter`) look
+covered when only another platform is built, and two projects in one workspace with a target of
+the same name share coverage; both need per-file platform or project-qualified target identity
+throughout the model.

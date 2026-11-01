@@ -217,7 +217,9 @@ private extension ProjectBuilder {
     if !schemes.isEmpty {
       return schemes
     }
-    let shared = Self.sharedSchemes(in: model.root.appendingPathComponent(container))
+    let shared = StarterConfiguration.sharedSchemes(
+      in: model.root.appendingPathComponent(container)
+    )
     guard shared.count == 1 else {
       let found = shared.isEmpty ? "none" : shared.joined(separator: ", ")
       throw DeadCodeError.usage(
@@ -235,15 +237,6 @@ private extension ProjectBuilder {
     guard result.succeeded else {
       throw DeadCodeError.failure(Self.failureMessage(output: output, log: log))
     }
-  }
-
-  /// Shared schemes of a project, or of every project a workspace's directory holds.
-  static func sharedSchemes(in container: URL) -> [String] {
-    let directory = container.appendingPathComponent("xcshareddata/xcschemes")
-    let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
-    return names.filter { $0.hasSuffix(".xcscheme") }
-      .map { ($0 as NSString).deletingPathExtension }
-      .sorted()
   }
 
   static func fileName(_ scheme: String) -> String {

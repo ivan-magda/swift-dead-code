@@ -11,6 +11,8 @@ public enum ConfigurationLoader {
   ) throws
     -> Configuration
   {
+    // The gate compares the path with repository paths: `./.deadcode.yml` is `.deadcode.yml`.
+    let path = TextFiles.normalize(path)
     let url = root.appendingPathComponent(path)
     guard FileManager.default.fileExists(atPath: url.path) else {
       var configuration = Configuration()

@@ -33,13 +33,9 @@ public struct PruneOptions: Sendable {
 /// Imports are removed one module at a time, so each new error comes from that module; every
 /// import the compiler then needs is put back. Pruning uses the default visibility rule, where
 /// a file can compile by borrowing a module that another file of its target imports, so each
-/// affected target is then built with MemberImportVisibility and every removed import an error
-/// names as a missing defining module is restored.
+/// affected target is then built with MemberImportVisibility and every import removed from a
+/// file that then fails is restored.
 public final class ImportPruner {
-  static let borrowed = try? NSRegularExpression(
-    pattern: #"missing import of defining module '(\w+)'"#
-  )
-
   let model: ProjectModel
   let configuration: Configuration
   let options: PruneOptions
@@ -290,11 +286,10 @@ private extension ImportPruner {
       for name in affected.sorted() {
         progress("prune: strict check of \(name)")
         try workspace.writeStrictness(for: [name])
+        // The error names the module that defines a member, which may be one that a removed
+        // import re-exports, so every import removed from the failing file goes back.
         let (_, errors) = try workspace.build(target: name)
-        for (path, messages) in errors {
-          let modules = Self.borrowedModules(messages)
-          restored.formUnion(removed.filter { $0.path == path && modules.contains($0.module) })
-        }
+        restored.formUnion(removed.filter { errors[$0.path] != nil })
       }
       try workspace.writeStrictness(for: [])
       if restored.isEmpty {
@@ -305,21 +300,5 @@ private extension ImportPruner {
       }
       removed.subtract(restored)
     }
-  }
-
-  static func borrowedModules(_ messages: Set<String>) -> Set<String> {
-    guard let expression = borrowed else {
-      return []
-    }
-    var modules: Set<String> = []
-    for message in messages {
-      let range = NSRange(message.startIndex..., in: message)
-      if let match = expression.firstMatch(in: message, range: range),
-        let module = Range(match.range(at: 1), in: message)
-      {
-        modules.insert(String(message[module]))
-      }
-    }
-    return modules
   }
 }
