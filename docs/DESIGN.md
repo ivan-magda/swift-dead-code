@@ -608,3 +608,25 @@ Not fixed: files a multiplatform target compiles for only one platform (`platfor
 covered when only another platform is built, and two projects in one workspace with a target of
 the same name share coverage; both need per-file platform or project-qualified target identity
 throughout the model.
+
+## 17. Changes from the review loop (2026-11-02)
+
+The same review then ran as a loop: each round reviewed the previous round's fixes and was told
+what was already decided and why, until a round left nothing to fix, at most three rounds.
+Round 1 (the whole project, above all the unreviewed `32e46bd`) found 8 points, round 2 (its
+fixes) 2, round 3 none. Each fix has a test that failed before it.
+
+1. **`prune-imports` on Xcode** (§7.5): the pruner's own `OTHER_SWIFT_FLAGS` assignment repeats
+   the configured one, because xcodebuild keeps only the last assignment of a setting; a
+   build's `-D` flags no longer vanish from the prune builds.
+2. **Strict check** (§5.1): every `Package@swift-*.swift` gets the suffix too, because SwiftPM
+   may read one of those instead of `Package.swift`, and the suffix uses `unsafeFlags`, which
+   PackageDescription before 5.8 accepts. Either case used to turn the check off silently.
+3. **SwiftPM sources**: `sources: ["."]` is the target directory, not nothing.
+4. **CRLF files**: `prune-imports` finds their imports (round 1) and its patch keeps their lines
+   as they are (round 2, a bug the first fix exposed).
+
+Not fixed: ignored generated sources are not part of the model (§2.1, §5.1); quoted includes
+resolved through header search paths or header maps (a known limit); untracked files do not
+count as mentions (README, "Files"); a target at the package root that also lists
+`sources: ["."]`, which says "the whole directory" twice.

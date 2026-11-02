@@ -84,3 +84,12 @@ After the second review pass the same three checks are unchanged. Its pruner cha
 configured build; every import removed from a file that fails the strict check goes back) do
 not apply here: the configuration has one build, and the parity runs removed nothing, so no
 strict check ran.
+
+## After the review loop (2026-11-02)
+
+The loop changed `prune-imports` (the strict check goes through `unsafeFlags` in every manifest
+variant; Xcode flags; CRLF files) and how the SwiftPM adapter joins a target's `sources` and
+`exclude` paths. On a fresh `git clone --local` at `39362695`, `check --report` is still
+byte-identical to `scripts/check-dead-code.py --report` (the same four allowlisted files, both
+exit 0), and `--check-only` on the same three files ran three strict builds with the new suffix
+and printed the same line, exit 0 (297 s, including the clone's first build).
