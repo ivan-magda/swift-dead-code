@@ -7,7 +7,7 @@ SwiftUI module and nested `Benchmarks/` and `Examples/` packages). Configuration
 ## `check --report`
 
 The first run, before the tool learned two conventions, gave 5 findings, all FALSE; both
-rules were added to the tool (DECISIONS.md, 2026-10-30) and the run is now clean.
+rules were added to the tool (`docs/DESIGN.md` §15) and the run is now clean.
 
 | Finding | Verdict | Evidence | Fixed by |
 | --- | --- | --- | --- |

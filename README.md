@@ -1,5 +1,8 @@
 # swift-dead-code
 
+[![CI](https://github.com/ivan-magda/swift-dead-code/actions/workflows/ci.yml/badge.svg)](https://github.com/ivan-magda/swift-dead-code/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Find and remove dead code in SwiftPM packages and Xcode apps, with the same results on every
 run. `swift-dead-code` is a command-line tool that orchestrates the compiler, your build
 system and [Periphery](https://github.com/peripheryapp/periphery): it never deletes anything
@@ -23,38 +26,50 @@ folders, xcconfig files and CocoaPods workspaces), and builds Xcode projects wit
 
 ## Install
 
-You need macOS 14 or later, Swift 6.2 or later, and for `scan` the last MIT release of
-Periphery, 3.8.0:
+swift-dead-code runs on macOS 14 or later.
 
 ```bash
-brew install periphery
+brew install ivan-magda/tap/swift-dead-code   # a prebuilt universal binary
+mint install ivan-magda/swift-dead-code       # built from source
 ```
 
-Periphery's repository is archived; 3.8.0 is its last open-source release, and
-[Periphery Pro](https://periphery.pro) continues it commercially (it needs an account). The
-triage notes were checked against 3.8.0, so `scan` refuses another version unless you set
-`periphery.version` in `.deadcode.yml`.
-
-Once the repository is published, install the tool with
-[Mint](https://github.com/yonaskolb/Mint), which builds the `swift-dead-code` product
-(not verified yet):
-
-```bash
-mint install ivan-magda/swift-dead-code
-```
-
-Or build it from a clone:
+Every [release](https://github.com/ivan-magda/swift-dead-code/releases) has the same binary as
+`swift-dead-code-<version>-macos.zip`, with its SHA-256 in `checksums.txt`. To build from a clone
+(Swift 6.2 or later; tested with 6.4):
 
 ```bash
 swift build -c release
 cp .build/release/swift-dead-code /usr/local/bin/
 ```
 
-A Homebrew formula would build the same way (`swift build -c release --disable-sandbox` and
-install `.build/release/swift-dead-code`); none is published yet.
+`scan` also needs Periphery 3.8.0, its last MIT release. Periphery's repository is archived, and
+[Periphery Pro](https://periphery.pro) continues it commercially (it needs an account). The
+triage notes were checked against 3.8.0, so `scan` refuses another version unless you set
+`periphery.version` in `.deadcode.yml`. Homebrew still installs it, but has deprecated the
+formula and disables it on 2027-08-12; Periphery's release archive stays:
 
-In a SwiftPM project you can also add this package as a dependency and run the command
-plugin. The plugin runs `swift`, `git` and `periphery`, so it needs the sandbox off:
+```bash
+brew install periphery
+```
+
+```bash
+curl -fsSLO https://github.com/peripheryapp/periphery/releases/download/3.8.0/periphery-3.8.0.zip
+echo "07d4e286e31dd79164df39097e0b59f533c94badbe18158464a455ea88a166d7  periphery-3.8.0.zip" \
+  | shasum -a 256 --check
+unzip periphery-3.8.0.zip -d periphery-3.8.0   # then put that directory on your PATH
+```
+
+### In a SwiftPM package
+
+[swift-dead-code-plugin](https://github.com/ivan-magda/swift-dead-code-plugin) runs the release
+binary as a command plugin, with Periphery 3.8.0 included: nothing to build, and nothing added
+to your package graph.
+
+```swift
+.package(url: "https://github.com/ivan-magda/swift-dead-code-plugin", from: "0.1.0"),
+```
+
+The tool runs `swift`, `git` and `periphery` itself, so the plugin needs the sandbox off:
 
 ```bash
 swift package --disable-sandbox dead-code check
@@ -251,6 +266,6 @@ swift build
 swift test
 ```
 
-[`docs/DESIGN.md`](docs/DESIGN.md) records the design and the review that changed it,
-[`DECISIONS.md`](DECISIONS.md) every non-obvious choice, and [`evals/`](evals) the projects
-the tool was checked on.
+[`CONTRIBUTING.md`](CONTRIBUTING.md) lists what a pull request needs, and [`AGENTS.md`](AGENTS.md)
+the architecture in short. [`docs/DESIGN.md`](docs/DESIGN.md) records the design and what
+reviews and evals changed in it, and [`evals/`](evals) the projects the tool was checked on.

@@ -1,0 +1,109 @@
+name: Release
+
+# Pushing a version tag, such as 0.1.0, publishes that version: the GitHub release with the
+# binary and the artifact bundle, then the Homebrew formula and the plugin package.
+on:
+  push:
+    tags: ["[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  release:
+    runs-on: macos-26
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out the tag
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Select Xcode
+        run: |
+          source BuildTools/lint-versions.env
+          sudo xcode-select --switch "/Applications/Xcode_${DEADCODE_XCODE_VERSION}.app"
+
+      - name: Build the binary and the artifact bundle
+        run: scripts/release.sh "$GITHUB_REF_NAME" "$RUNNER_TEMP/release"
+
+      - name: Attest where they were built
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: ${{ runner.temp }}/release/*.zip
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          awk -v version="$GITHUB_REF_NAME" '
+            index($0, "## " version) == 1 { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          if ! grep -q '[^[:space:]]' "$RUNNER_TEMP/notes.md"; then
+            echo "::error::CHANGELOG.md has no section for $GITHUB_REF_NAME"
+            exit 1
+          fi
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md" \
+            "$RUNNER_TEMP"/release/*.zip "$RUNNER_TEMP/release/checksums.txt"
+
+  downstream:
+    name: Update the Homebrew tap and the plugin
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # A fine-grained token with read and write access to the contents of
+      # ivan-magda/homebrew-tap and ivan-magda/swift-dead-code-plugin.
+      TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ github.ref_name }}
+    steps:
+      - name: Push the new version to both repositories
+        run: |
+          if [[ -z "$TOKEN" ]]; then
+            echo "::warning::RELEASE_TOKEN is not set: update the tap and the plugin by hand."
+            exit 0
+          fi
+          gh release download "$VERSION" --repo "$GITHUB_REPOSITORY" --pattern checksums.txt \
+            --dir "$RUNNER_TEMP"
+          checksum() {
+            awk -v file="$1" '$2 == file { print $1 }' "$RUNNER_TEMP/checksums.txt"
+          }
+          archive=$(checksum "swift-dead-code-$VERSION-macos.zip")
+          bundle=$(checksum "swift-dead-code-$VERSION.artifactbundle.zip")
+          [[ -n "$archive" && -n "$bundle" ]]
+          bot=(-c user.name="github-actions[bot]"
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com")
+
+          git clone --quiet "https://x-access-token:${TOKEN}@github.com/ivan-magda/homebrew-tap" \
+            "$RUNNER_TEMP/tap"
+          cd "$RUNNER_TEMP/tap"
+          sed -E -i \
+            -e "s|download/[^/]+/swift-dead-code-[^/]+-macos\.zip|download/$VERSION/swift-dead-code-$VERSION-macos.zip|" \
+            -e "s|sha256 \"[0-9a-f]{64}\"|sha256 \"$archive\"|" \
+            Formula/swift-dead-code.rb
+          git "${bot[@]}" commit --quiet --all --message "swift-dead-code $VERSION"
+          git push --quiet origin HEAD
+
+          git clone --quiet \
+            "https://x-access-token:${TOKEN}@github.com/ivan-magda/swift-dead-code-plugin" \
+            "$RUNNER_TEMP/plugin"
+          cd "$RUNNER_TEMP/plugin"
+          sed -E -i \
+            -e "s|^let version = \".*\"|let version = \"$VERSION\"|" \
+            -e "s|^let checksum = \"[0-9a-f]{64}\"|let checksum = \"$bundle\"|" \
+            Package.swift
+          git "${bot[@]}" commit --quiet --all --message "swift-dead-code $VERSION"
+          git "${bot[@]}" tag --annotate "$VERSION" --message "swift-dead-code $VERSION"
+          git push --quiet origin HEAD "$VERSION"

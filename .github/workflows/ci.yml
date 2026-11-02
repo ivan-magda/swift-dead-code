@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test:
+    name: Test (${{ matrix.xcode }} Xcode)
+    runs-on: macos-26
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # The Xcode that BuildTools/lint-versions.env pins, and the oldest Xcode 26 on the image,
+        # which checks the Swift version that Package.swift declares.
+        xcode: [pinned, oldest]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Select Xcode
+        id: xcode
+        run: |
+          source BuildTools/lint-versions.env
+          if [[ "${{ matrix.xcode }}" == pinned ]]; then
+            app="/Applications/Xcode_${DEADCODE_XCODE_VERSION}.app"
+          else
+            candidates=(/Applications/Xcode_26*.app)
+            app=$(printf '%s\n' "${candidates[@]}" | sort -V | head -1)
+          fi
+          if [[ ! -d "$app" ]]; then
+            installed=(/Applications/Xcode*.app)
+            echo "::error::Xcode '$app' is not on this image. Installed: ${installed[*]}"
+            exit 1
+          fi
+          sudo xcode-select --switch "$app"
+          swift --version
+          printf 'version=%s\n' "$(xcodebuild -version | head -1 | cut -d' ' -f2)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Periphery and XcodeGen
+        run: |
+          source BuildTools/lint-versions.env
+          archive="$RUNNER_TEMP/periphery.zip"
+          curl --fail --location --silent --show-error --output "$archive" \
+            "https://github.com/peripheryapp/periphery/releases/download/${DEADCODE_PERIPHERY_VERSION}/periphery-${DEADCODE_PERIPHERY_VERSION}.zip"
+          printf '%s  %s\n' "$DEADCODE_PERIPHERY_SHA256" "$archive" | shasum -a 256 --check
+          unzip -q "$archive" -d "$RUNNER_TEMP/periphery"
+          printf '%s\n' "$RUNNER_TEMP/periphery" >> "$GITHUB_PATH"
+          brew install xcodegen
+
+      - name: Restore the build
+        uses: actions/cache@v6
+        with:
+          path: .build
+          key: build-xcode-${{ steps.xcode.outputs.version }}-${{ hashFiles('Package.resolved') }}
+
+      - name: Build
+        run: swift build --build-tests
+
+      - name: Test
+        # Without Periphery or XcodeGen some tests skip instead of failing, so a skip fails here.
+        run: |
+          swift test --skip-build 2>&1 | tee "$RUNNER_TEMP/test.log"
+          if grep -q ' skipped' "$RUNNER_TEMP/test.log"; then
+            echo "::error::Some tests were skipped: is Periphery or XcodeGen missing?"
+            exit 1
+          fi
+
+      - name: Check this repository with the tool
+        run: swift run swift-dead-code check
+
+  lint:
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Select Xcode and install SwiftLint
+        run: |
+          source BuildTools/lint-versions.env
+          sudo xcode-select --switch "/Applications/Xcode_${DEADCODE_XCODE_VERSION}.app"
+          archive="$RUNNER_TEMP/swiftlint.zip"
+          curl --fail --location --silent --show-error --output "$archive" \
+            "https://github.com/realm/SwiftLint/releases/download/${DEADCODE_SWIFTLINT_VERSION}/portable_swiftlint.zip"
+          printf '%s  %s\n' "$DEADCODE_SWIFTLINT_SHA256" "$archive" | shasum -a 256 --check
+          unzip -q "$archive" -d "$RUNNER_TEMP/swiftlint"
+          printf '%s\n' "$RUNNER_TEMP/swiftlint" >> "$GITHUB_PATH"
+
+      - name: Lint
+        run: STRICT=1 scripts/lint.sh

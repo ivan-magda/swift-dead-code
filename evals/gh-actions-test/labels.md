@@ -1,7 +1,7 @@
 # GhActionsTest: labels
 
-Clone at `7e669e2` of a small test repository on this machine
-(`~/Developer/tmp/gh-actions-test`): a SwiftUI app in a CocoaPods workspace one
+Clone at `7e669e2` of a small test repository
+([gh-actions-test](https://github.com/ivan-magda/gh-actions-test)): a SwiftUI app in a CocoaPods workspace one
 directory below the repository root, with one pod, SwiftLint 0.50.1, which ships a binary and no
 module. Configuration: [`deadcode.yml`](deadcode.yml). Setup in the clone: `pod install` (the
 `Pods/` directory is not committed; `Podfile.lock` gains the CocoaPods version line).

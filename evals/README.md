@@ -6,15 +6,15 @@ it proposes no live code for deletion, and that the project needs nothing but a
 
 ## How a project is evaluated
 
-1. **Clone.** `git clone --local <repo> ~/Developer/swift-dead-code-work/<name>`;
-   the original checkout is never touched. The cloned commit is recorded in `summary.json`.
+1. **Clone.** `git clone --local <repo> <work>/<name>`, where `<work>` is a scratch directory
+   outside every checkout; the original checkout is never touched. The cloned commit is recorded in `summary.json`.
    Setup the project's own README asks for (an xcconfig from its template, `pod install`,
    generating an XcodeGen project) is done in the clone and noted there.
 2. **Configure.** `deadcode.yml` here is copied into the clone as `.deadcode.yml`. It is the
    only input besides the clone.
 3. **Run.** `check --report`, `scan --output runs/<name>/scan`, and for SwiftPM packages
    `prune-imports --all` and `prune-imports --check-only --all`, one build at a time. Outputs
-   stay under `~/Developer/swift-dead-code-work/runs/<name>/`.
+   stay under `<work>/runs/<name>/`.
 4. **Label.** `labels.md` gives every finding a verdict with evidence:
    - **TRUE**: dead; proposed for deletion.
    - **FALSE**: alive; the scanner is wrong. Says whether the triage note flags it.
@@ -33,8 +33,8 @@ it proposes no live code for deletion, and that the project needs nothing but a
 | `deadcode.yml` | the configuration the project needed |
 | `labels.md` | every finding with its verdict and evidence |
 | `verification.md` | the researcher's report and the build and test results of the deletions |
-| `deletions.patch` | the applied deletions, as `git format-patch` output against the recorded commit |
-| `summary.json` | commit, counts per verdict, timings, for REPORT.md |
+| `deletions.patch` | the applied deletions, as `git format-patch` output against the recorded commit; not published for the AGPL-3.0 projects (IceCubes, Element X), whose code it contains |
+| `summary.json` | commit, counts per verdict, timings |
 
 [`swift-claw/parity.md`](swift-claw/parity.md) compares the tool with the scripts it replaces.
 

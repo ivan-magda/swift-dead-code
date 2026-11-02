@@ -40,7 +40,7 @@ top. It never deletes code: removals come out as a patch or a list of findings.
 
 - When a check's rules or a `.deadcode.yml` key change, update the README ("Configuration", "How
   the checks decide") and `docs/DESIGN.md`, and the skill when CLI flags or output change.
-- Record each non-obvious decision as a dated row in `DECISIONS.md`. That file, `REPORT.md` and
-  `PROGRESS.md` are in Russian, like `docs/BRIEF.md`; the rest is in English.
+- Log non-obvious decisions as dated rows in `DECISIONS.md`: the owner's gitignored local notes
+  in Russian, like `REPORT.md`, `PROGRESS.md`, `docs/BRIEF.md`; everything committed is English.
 - Before running or changing an eval → `evals/README.md`. Evals run in `git clone --local` copies
-  under `../swift-dead-code-work/`, never in original checkouts such as `../swift-claw`.
+  in a scratch directory, never in the original checkouts.

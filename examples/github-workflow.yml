@@ -25,8 +25,9 @@ concurrency:
 
 env:
   PERIPHERY_VERSION: 3.8.0
-  # Pin a release of swift-dead-code and its checksum once one is published.
-  SWIFT_DEAD_CODE_REF: main
+  SWIFT_DEAD_CODE_VERSION: 0.1.0
+  # The SHA-256 of swift-dead-code-<version>-macos.zip, from checksums.txt in the release.
+  SWIFT_DEAD_CODE_SHA256: set-from-checksums-txt
 
 defaults:
   run:
@@ -34,11 +35,11 @@ defaults:
 
 jobs:
   periphery:
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 60
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -48,18 +49,21 @@ jobs:
           curl --fail --location --silent --show-error \
             "https://github.com/peripheryapp/periphery/releases/download/${PERIPHERY_VERSION}/periphery-${PERIPHERY_VERSION}.zip" \
             --output "$archive"
-          # Verify the archive: swift-claw pins 07d4e286e31dd79164df39097e0b59f533c94badbe18158464a455ea88a166d7.
+          # The SHA-256 of periphery-3.8.0.zip.
           printf '%s  %s\n' "07d4e286e31dd79164df39097e0b59f533c94badbe18158464a455ea88a166d7" "$archive" \
             | shasum -a 256 --check
           unzip -q "$archive" -d "$RUNNER_TEMP/periphery"
           printf '%s\n' "$RUNNER_TEMP/periphery" >> "$GITHUB_PATH"
 
-      - name: Build swift-dead-code
+      - name: Install pinned swift-dead-code
         run: |
-          git clone --depth 1 --branch "$SWIFT_DEAD_CODE_REF" \
-            https://github.com/ivan-magda/swift-dead-code "$RUNNER_TEMP/swift-dead-code"
-          swift build -c release --package-path "$RUNNER_TEMP/swift-dead-code"
-          printf '%s\n' "$RUNNER_TEMP/swift-dead-code/.build/release" >> "$GITHUB_PATH"
+          archive="$RUNNER_TEMP/swift-dead-code.zip"
+          curl --fail --location --silent --show-error \
+            "https://github.com/ivan-magda/swift-dead-code/releases/download/${SWIFT_DEAD_CODE_VERSION}/swift-dead-code-${SWIFT_DEAD_CODE_VERSION}-macos.zip" \
+            --output "$archive"
+          printf '%s  %s\n' "$SWIFT_DEAD_CODE_SHA256" "$archive" | shasum -a 256 --check
+          unzip -q "$archive" -d "$RUNNER_TEMP/swift-dead-code"
+          printf '%s\n' "$RUNNER_TEMP/swift-dead-code" >> "$GITHUB_PATH"
 
       - name: Scan with and without tests
         run: swift-dead-code scan --output "$RUNNER_TEMP/scan"
@@ -82,7 +86,7 @@ jobs:
 
       - name: Upload the triage report
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: periphery
           path: |
@@ -93,20 +97,23 @@ jobs:
             ${{ runner.temp }}/scan/*.err
 
   imports:
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 300
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - name: Build swift-dead-code
+      - name: Install pinned swift-dead-code
         run: |
-          git clone --depth 1 --branch "$SWIFT_DEAD_CODE_REF" \
-            https://github.com/ivan-magda/swift-dead-code "$RUNNER_TEMP/swift-dead-code"
-          swift build -c release --package-path "$RUNNER_TEMP/swift-dead-code"
-          printf '%s\n' "$RUNNER_TEMP/swift-dead-code/.build/release" >> "$GITHUB_PATH"
+          archive="$RUNNER_TEMP/swift-dead-code.zip"
+          curl --fail --location --silent --show-error \
+            "https://github.com/ivan-magda/swift-dead-code/releases/download/${SWIFT_DEAD_CODE_VERSION}/swift-dead-code-${SWIFT_DEAD_CODE_VERSION}-macos.zip" \
+            --output "$archive"
+          printf '%s  %s\n' "$SWIFT_DEAD_CODE_SHA256" "$archive" | shasum -a 256 --check
+          unzip -q "$archive" -d "$RUNNER_TEMP/swift-dead-code"
+          printf '%s\n' "$RUNNER_TEMP/swift-dead-code" >> "$GITHUB_PATH"
 
       # Periphery never reports imports of package dependencies, pods, Testing or
       # Synchronization. Product code comes first; test code is left to an explicit
@@ -131,7 +138,7 @@ jobs:
 
       - name: Upload the patch and build logs
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: imports
           path: |

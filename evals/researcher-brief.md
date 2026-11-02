@@ -6,8 +6,8 @@ per group.
 
 ```text
 You are an independent, read-only researcher. Do not modify, create or delete files; do not
-build into the project (if you build, use a scratch path under
-$TMPDIR/... or your own DerivedData). Reading files, git log/grep/show are fine.
+build into the project (if you build, use a scratch path in a temporary directory or your own
+DerivedData). Reading files, git log/grep/show are fine.
 
 Project: <clone path>. Kind: <SwiftPM package | Xcode project>. Contract documents: <paths>.
 

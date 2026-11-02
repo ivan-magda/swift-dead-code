@@ -1,7 +1,6 @@
 # swift-dead-code: design
 
-Status: accepted for implementation on 2026-10-30. Owner review is pending; disagreements
-with reviewers are recorded in [`DECISIONS.md`](../DECISIONS.md).
+Status: implemented. Sections 14–17 record what reviews and evals changed, and why.
 
 ## 1. Purpose
 
@@ -431,7 +430,7 @@ unchanged after each read-only command.
   its evidence, and for false positives whether triage flags them;
 - `verification.md`: commands and results of applying the TRUE group in the clone, building
   and testing, and the researcher's report;
-- `summary.json`: counts per subcommand for REPORT.md.
+- `summary.json`: counts per subcommand.
 
 Projects run in `git clone --local` copies under `../swift-dead-code-work/`, never in the
 original checkouts; nothing is committed or pushed there. A deletion counts as verified only
@@ -451,10 +450,17 @@ from swift-claw) and SwiftLint (`.swiftlint.yml` modeled on swift-claw) with the
 
 ## 12. Distribution
 
-- Mint: `mint install <owner>/swift-dead-code` builds the `swift-dead-code` executable.
-- Homebrew: a formula that builds with `swift build -c release` (documented, not published).
-- SwiftPM command plugin: `swift package --disable-sandbox dead-code check`; the sandbox
-  must be off because the tool runs `swift`, `git` and `periphery`.
+- Releases: a version tag runs `.github/workflows/release.yml`, which builds a universal binary
+  with `scripts/release.sh` and publishes it as a zip and as a SwiftPM artifact bundle, with
+  their SHA-256 and a build provenance attestation.
+- Homebrew: the `ivan-magda/homebrew-tap` formula installs the zip; the release workflow
+  updates it.
+- Mint: `mint install ivan-magda/swift-dead-code` builds the `swift-dead-code` executable.
+- SwiftPM command plugin: `ivan-magda/swift-dead-code-plugin` runs the artifact bundle, with
+  Periphery's own artifact bundle first on the PATH, so it adds nothing to the package graph;
+  the release workflow updates its checksum and tags it. `swift package --disable-sandbox
+  dead-code check`: the sandbox must be off because the tool runs `swift`, `git` and
+  `periphery`.
 
 ## 13. Known limits
 
@@ -539,7 +545,7 @@ opening the cited code; the changes below override the sections above.
 ## 15. Changes from the evals (2026-10-31)
 
 Each change below came from a false finding on a real project and needs no project-specific
-knowledge; `DECISIONS.md` has the reasons and rollbacks.
+knowledge.
 
 1. **Gate mentions** (§7.1): Run Script phases' scripts and input and output paths count, as
    build settings do; a stem shorter than `min_stem_length` also counts as a whole string
@@ -567,7 +573,7 @@ knowledge; `DECISIONS.md` has the reasons and rollbacks.
 ## 16. Changes from the code review (2026-11-01)
 
 A review by another model (Codex, `gpt-6-astra`) of the whole repository found these; each fix
-has a test that failed before it, and `DECISIONS.md` has the reasons.
+has a test that failed before it.
 
 1. **Dependencies** (§7.1): a dependency stays when removing it would cut a target that has it,
    directly or through others, off a module that target imports without declaring it. Each

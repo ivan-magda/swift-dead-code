@@ -2,9 +2,11 @@
 
 The generalized tool must give swift-claw's findings from configuration alone
 ([`deadcode.yml`](deadcode.yml)), with every difference explained.
+[`docs/swift-claw-migration.md`](../../docs/swift-claw-migration.md) is the plan for moving
+swift-claw onto the tool.
 
-- Clone: `git clone --local ~/Developer/swift-claw
-  ~/Developer/swift-dead-code-work/swift-claw`, HEAD `39362695` (2026-10-30).
+- Clone: `git clone --local` of [swift-claw](https://github.com/ivan-magda/swift-claw) into a
+  scratch directory, HEAD `39362695` (2026-10-30).
 - Toolchain: Swift 6.4 (swiftlang-6.4.0.34.1), Xcode 27.1, Periphery 3.8.0.
 - The configuration is copied into the clone as `.deadcode.yml`; swift-claw itself is untouched.
 

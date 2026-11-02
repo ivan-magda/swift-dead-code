@@ -1,4 +1,21 @@
+# Build products
 .build/
 .swiftpm/
-*.xcodeproj/xcuserdata/
+DerivedData/
+xcuserdata/
+
+# Editors and agents
 .DS_Store
+.idea/
+.vscode/
+.claude/settings.local.json
+
+# The owner's local notes, in Russian: kept on disk, never published
+/DECISIONS.md
+/PROGRESS.md
+/REPORT.md
+/docs/BRIEF.md
+
+# Deletions verified in AGPL-3.0 projects contain their code: kept on disk, never published
+/evals/element-x/deletions.patch
+/evals/icecubes/deletions.patch

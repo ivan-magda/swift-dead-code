@@ -20,7 +20,7 @@ synchronized folders, 13 local packages added as folder references. Configuratio
 The first run, before the tool learned three conventions, also listed `AGENTS.MD` (case),
 `Localizable.xcstrings`, nested `.swiftpm/` schemes, `ci_scripts/*` and 38 alternate-icon
 image sets loaded as `"AppIconAlternate\(index)-image"`; all FALSE, all fixed in the tool
-(DECISIONS.md, 2026-10-30).
+(`docs/DESIGN.md` §15).
 
 ## `scan` (iOS alone: 210 unused declarations; iOS and Mac Catalyst together: 197)
 
