@@ -369,9 +369,11 @@ extension IntegrationTests {
     )
     .run(output: project.scratch, skipBuild: false) { _ in }
 
-    // then: Core is the project's code, though Client reaches it from outside.
+    // then: Core is the project's code, though Client reaches it from outside, and Client's
+    // call keeps Core's function.
     let all = try PeripheryFinding.read(project.scratch.appendingPathComponent("all.json"))
     #expect(all.contains { $0.name == "unusedInCore()" })
+    #expect(!all.contains { $0.name == "onlyClientUses()" })
   }
 
   /// Puts Shared, a package of its own, beside the project, and makes Lib use it through

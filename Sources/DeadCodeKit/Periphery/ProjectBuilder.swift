@@ -8,7 +8,8 @@ public struct IndexedBuild: Sendable, Equatable {
   public var storesByBuild: [String: URL] = [:]
   /// `--index-exclude` globs for dependency sources, which would otherwise be scanned.
   public var dependencyExcludes: [String]
-  /// `--report-exclude` globs for sources a build generates outside the project.
+  /// `--report-exclude` globs for sources outside the project that stay indexed: what a build
+  /// generates, and local packages beside the project, whose calls into it count.
   public var generatedExcludes: [String]
   /// The options that tell Periphery which project the index belongs to.
   public var projectArguments: [String]

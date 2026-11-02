@@ -283,10 +283,10 @@ findings.
 Move those options to `periphery.arguments`. Results cover the platforms and configurations
 you build. Use `builds` to cover several; a reference in any of them keeps the declaration.
 
-The scan leaves local packages outside the project root out of the index, as it does with
-remote packages, so the report lists none of their declarations. A package that contains the
-project stays in the index: an example app that depends on its library through `../..` gets
-findings in the library too.
+The scan reports none of the declarations in local packages outside the project root, but it
+keeps those packages in the index, so a call they make into the project counts. A package that
+contains the project gets reported with it: an example app that depends on its library
+through `../..` gets findings in the library too.
 
 Targets that share a module name can produce false positives in a merged index. For these
 projects, the scan uses an index per build and checks findings against each build that

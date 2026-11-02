@@ -478,10 +478,10 @@ from swift-claw) and SwiftLint (`.swiftlint.yml` modeled on swift-claw) with the
   tool reports which targets have non-Swift sources and limits itself to Swift.
 - CocoaPods dependency declarations (Ruby) are not checked by the gate.
 - XcodeGen and Tuist manifests are not read; generate the project first.
-- `scan` keeps local packages outside the project out of the index, as it does remote
-  checkouts, except a package that contains the project (an example app's library, reached by
-  `../..`): that one stays in the index, and its declarations appear in the results with paths
-  outside the project.
+- `scan` indexes local packages outside the project, so their calls into it count, and
+  reports none of their declarations (`--report-exclude`), except in a package that contains
+  the project (an example app's library, reached by `../..`): its declarations appear in the
+  results with paths outside the project.
 
 ## 14. Changes after the independent review (2026-10-30)
 

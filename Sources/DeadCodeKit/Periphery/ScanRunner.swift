@@ -118,10 +118,11 @@ private extension ScanRunner {
     }
     var build = try ProjectBuilder(model: model, configuration: configuration, runner: runner)
       .build(copy: workingCopy.copy, work: output, skipBuild: skipBuild, progress: progress)
-    // Local packages outside the project are dependencies too, unless one holds the project.
-    // The index has their paths with every link resolved.
+    // Local packages outside the project are not reported, unless one holds the project, but
+    // stay indexed: a package can call into the project. The index has their paths with every
+    // link resolved.
     let project = TextFiles.realPath(workingCopy.copy) + "/"
-    build.dependencyExcludes += workingCopy.packages.map { TextFiles.realPath($0.copy) }
+    build.generatedExcludes += workingCopy.packages.map { TextFiles.realPath($0.copy) }
       .filter { !project.hasPrefix($0 + "/") }
       .map { $0 + "/**" }
     return (workingCopy.copy, build)
