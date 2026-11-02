@@ -1,6 +1,8 @@
 # swift-dead-code
 
 [![CI](https://github.com/ivan-magda/swift-dead-code/actions/workflows/ci.yml/badge.svg)](https://github.com/ivan-magda/swift-dead-code/actions/workflows/ci.yml)
+[![Swift versions](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fivan-magda%2Fswift-dead-code%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/ivan-magda/swift-dead-code)
+[![Platforms](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fivan-magda%2Fswift-dead-code%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/ivan-magda/swift-dead-code)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 A command-line tool for finding unused code, imports, dependencies, files, and assets in
