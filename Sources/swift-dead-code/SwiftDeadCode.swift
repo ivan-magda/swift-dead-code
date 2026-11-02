@@ -11,7 +11,7 @@ struct SwiftDeadCode: ParsableCommand {
       Configuration lives in .deadcode.yml at the project root. Every subcommand reads it; \
       only `scan` and `prune-imports` build, and they build into their own directory.
       """,
-    version: "0.1.1",
+    version: "0.1.2",
     subcommands: [
       Check.self, Scan.self, Triage.self, BaselineCommand.self, PruneImports.self,
       Describe.self, Init.self,

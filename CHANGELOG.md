@@ -2,7 +2,7 @@
 
 Notable changes to swift-dead-code. Versions follow [Semantic Versioning](https://semver.org).
 
-## Unreleased
+## 0.1.2 (2026-11-02)
 
 - `scan` and `prune-imports` build a project that depends on a local package outside its root,
   such as `.package(path: "../Shared")` or an Xcode local package reference. The build used to
