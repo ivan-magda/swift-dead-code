@@ -66,7 +66,8 @@ private extension UnifiedDiff {
     }
   }
 
+  /// The last byte, since a CRLF line ends with the Character "\r\n", which is not "\n".
   static func terminated(_ line: String) -> String {
-    line.hasSuffix("\n") ? line : line + "\n\\ No newline at end of file\n"
+    line.utf8.last == UInt8(ascii: "\n") ? line : line + "\n\\ No newline at end of file\n"
   }
 }

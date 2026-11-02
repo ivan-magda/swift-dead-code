@@ -179,4 +179,17 @@ struct UnifiedDiffTests {
     #expect(diff.hasSuffix(" let a = 1\n\\ No newline at end of file\n"))
     #expect(diff.contains("@@ -1,2 +1 @@"))
   }
+
+  @Test
+  func keepsWindowsLineEndings() {
+    // when: a CRLF line ends with the Character "\r\n", which is not "\n".
+    let diff = UnifiedDiff.removing(
+      [1],
+      from: ["import Kit\r\n", "let a = 1\r\n"],
+      path: "C.swift"
+    )
+
+    // then
+    #expect(diff == "--- a/C.swift\n+++ b/C.swift\n@@ -1,2 +1 @@\n-import Kit\r\n let a = 1\r\n")
+  }
 }
