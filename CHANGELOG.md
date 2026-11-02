@@ -2,12 +2,14 @@
 
 Notable changes to swift-dead-code. Versions follow [Semantic Versioning](https://semver.org).
 
-## Unreleased
+## 0.1.1 (2026-11-02)
 
 - Removed the command plugin this package built from source: it added swift-syntax, XcodeProj
   and Yams to the package graph of every package that used it.
   [swift-dead-code-plugin](https://github.com/ivan-magda/swift-dead-code-plugin) runs the release
   binary instead.
+- The skill says how to install the CLI, and the README installs the skill with
+  [`npx skills`](https://github.com/vercel-labs/skills).
 
 ## 0.1.0 (2026-11-02)
 
