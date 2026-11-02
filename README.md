@@ -235,19 +235,16 @@ cannot decide: the verdict on each Periphery finding (seam, contract, AMBIGUOUS)
 independent researcher before each deletion group, and the completeness sweep that gates the
 pull request. It calls the CLI and does not repeat its logic.
 
-Install it for Claude Code in one project, or for every project:
+Install it with the [skills](https://github.com/vercel-labs/skills) CLI, for Claude Code, Codex
+and the other agents it supports:
 
 ```bash
-cp -R skills/removing-dead-code <project>/.claude/skills/
-cp -R skills/removing-dead-code ~/.claude/skills/
+npx skills add ivan-magda/swift-dead-code      # for the current project
+npx skills add ivan-magda/swift-dead-code -g   # for every project
 ```
 
-Codex and other agents that read `.agents/skills/` take the same directory. To ship it through
-a plugin marketplace such as
-[claude-code-marketplace](https://github.com/ivan-magda/claude-superpowers), copy the
-directory to `plugins/swift/skills/removing-dead-code/` (or a new `plugins/swift-dead-code/`
-with its own `.claude-plugin/plugin.json`), add the plugin to `.claude-plugin/marketplace.json`
-if it is new, and bump the plugin version.
+Or copy `skills/removing-dead-code` yourself, into `.claude/skills/` for Claude Code or
+`.agents/skills/` for Codex, in a project or in your home directory.
 
 ## Beyond static analysis
 

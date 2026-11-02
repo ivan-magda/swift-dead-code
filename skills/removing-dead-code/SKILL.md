@@ -11,6 +11,10 @@ scanner's list is a set of leads, never the verdict and never the complete set. 
 finished when the completeness sweep (§5) finds nothing new, not when a list is empty or the
 build passes.
 
+If `swift-dead-code` is missing, install it with `brew install ivan-magda/tap/swift-dead-code`;
+`scan` also needs Periphery 3.8.0
+([install](https://github.com/ivan-magda/swift-dead-code#install)).
+
 Run every command from the project root. `.deadcode.yml` there holds the project's settings:
 schemes, test support, allowlist, baseline path, contract documents. Without one, run
 `swift-dead-code init > .deadcode.yml` and fill it in: an Xcode project's schemes and
