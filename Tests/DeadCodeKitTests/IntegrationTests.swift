@@ -6,7 +6,7 @@ import Testing
 @Suite(.serialized)
 struct IntegrationTests {
   /// The suite serializes its own builds; a real scan on the machine must not block it.
-  static let lockName = "swift-dead-code-tests-\(ProcessInfo.processInfo.processIdentifier).lock"
+  static let lockName = "swift-dead-code-tests.lock"
 
   @Test(.enabled(if: Tools.hasPeriphery), .timeLimit(.minutes(10)))
   func scanFindsPlantedDeadCodeWithoutTouchingTheProject() throws {
@@ -315,6 +315,23 @@ struct DescribeAndInitTests {
   }
 
   @Test
+  func readingAPackageLeavesNoLockFileInTheTemporaryDirectory() throws {
+    // given: SwiftPM keeps a lock file per scratch path in TMPDIR, and every read of a package
+    // uses a new scratch path.
+    let project = try FixtureProject.copy("ScanPackage")
+    defer {
+      project.remove()
+    }
+    let before = try Self.manifestLocks()
+
+    // when
+    _ = try project.load()
+
+    // then
+    #expect(try Self.manifestLocks().subtracting(before).isEmpty)
+  }
+
+  @Test
   func aTargetWhoseSourcesAreItsDirectoryKeepsItsFiles() throws {
     // given: `sources: ["."]` names the whole target directory, as leaving `sources` out does.
     let project = try FixtureProject.copy("ScanPackage")
@@ -357,5 +374,13 @@ struct DescribeAndInitTests {
     // then
     #expect(configuration.project.kind == .swiftpm)
     #expect(configuration.periphery.version == PeripherySettings().version)
+  }
+
+  /// The lock files the tool's manifest reads left in the temporary directory.
+  static func manifestLocks() throws -> Set<String> {
+    let names = try FileManager.default.contentsOfDirectory(
+      atPath: FileManager.default.temporaryDirectory.path
+    )
+    return Set(names.filter { $0.contains("swift-dead-code-manifest") && $0.hasSuffix(".lock") })
   }
 }

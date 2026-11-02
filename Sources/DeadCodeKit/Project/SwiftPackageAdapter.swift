@@ -15,9 +15,11 @@ public struct SwiftPackageAdapter: Sendable {
     prefix: String = "",
     configuration: Configuration
   ) throws -> ProjectModel {
-    // Without a scratch path, SwiftPM creates .build/ in the project.
+    // Without a scratch path, SwiftPM creates .build/ in the project. It keeps a lock file for
+    // each scratch path in TMPDIR, so TMPDIR is this directory too and nothing outlives it.
     let scratch = FileManager.default.temporaryDirectory
       .appendingPathComponent("swift-dead-code-manifest-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
     defer {
       try? FileManager.default.removeItem(at: scratch)
     }
@@ -25,7 +27,8 @@ public struct SwiftPackageAdapter: Sendable {
       of: Command(
         "swift",
         ["package", "--scratch-path", scratch.path, "dump-package"],
-        in: packageRoot
+        in: packageRoot,
+        environment: ["TMPDIR": scratch.path]
       )
     )
     let manifest: DumpedPackage

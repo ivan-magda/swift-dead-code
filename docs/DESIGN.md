@@ -186,7 +186,9 @@ several candidates the tool stops and asks for `project.path`. A `project.yml` (
 
 ### 5.1 SwiftPM adapter
 
-- Manifest: `swift package dump-package` (no resolution). Target directory: `path`, or the
+- Manifest: `swift package dump-package` (no resolution), with one temporary directory as both
+  `--scratch-path` and `TMPDIR`, removed afterwards, since SwiftPM keeps a lock file for each
+  scratch path in `TMPDIR`. Target directory: `path`, or the
   first existing default root (`Sources`, `Source`, `src`, `srcs`; tests also look in
   `Tests`; plugins in `Plugins`), as swift-claw's gate did.
 - Source files: Swift files under the target directory, tracked or untracked-but-not-ignored
