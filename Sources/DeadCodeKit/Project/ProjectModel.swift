@@ -18,6 +18,9 @@ public struct ProjectModel: Sendable {
   public var buildSettingText: String
   /// Files whose text lists project membership rather than uses, such as `project.pbxproj`.
   public var membershipFiles: Set<String>
+  /// The local packages the project depends on by path (`.package(path:)`, Xcode local package
+  /// references), relative to the root: `../Shared` for one beside it.
+  public var localPackageDependencies: [String]
 
   public init(
     kind: Kind,
@@ -25,7 +28,8 @@ public struct ProjectModel: Sendable {
     targets: [ProjectTarget],
     externalModules: Set<String> = [],
     buildSettingText: String = "",
-    membershipFiles: Set<String> = []
+    membershipFiles: Set<String> = [],
+    localPackageDependencies: Set<String> = []
   ) {
     self.kind = kind
     self.root = root
@@ -33,6 +37,7 @@ public struct ProjectModel: Sendable {
     self.externalModules = externalModules
     self.buildSettingText = buildSettingText
     self.membershipFiles = membershipFiles
+    self.localPackageDependencies = localPackageDependencies.sorted()
   }
 
   /// The names of the targets that compile a file.

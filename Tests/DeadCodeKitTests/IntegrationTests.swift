@@ -268,6 +268,105 @@ struct IntegrationTests {
       progress.contains("prune: kept Sources/Lib/Twin.swift:1 (import Helper): the file borrows it")
     )
   }
+
+  @Test(.enabled(if: Tools.hasPeriphery), .timeLimit(.minutes(10)))
+  func scanBuildsAProjectThatDependsOnALocalPackageBesideIt() throws {
+    // given
+    let project = try FixtureProject.copy("ScanPackage")
+    defer {
+      project.remove()
+    }
+    try Self.addSharedPackageBeside(project)
+    let configuration = Configuration()
+
+    // when
+    try ScanRunner(
+      model: try project.load(configuration),
+      configuration: configuration,
+      lockName: Self.lockName
+    )
+    .run(output: project.scratch, skipBuild: false) { _ in }
+
+    // then: Shared is a dependency, so its unused function is not the project's finding.
+    let all = try PeripheryFinding.read(project.scratch.appendingPathComponent("all.json"))
+    #expect(all.contains { $0.name == "forgottenHelper()" })
+    #expect(!all.contains { $0.name == "unusedShared()" })
+  }
+
+  @Test(.timeLimit(.minutes(10)))
+  func pruneBuildsAProjectThatDependsOnALocalPackageBesideIt() throws {
+    // given
+    let project = try FixtureProject.copy("ScanPackage")
+    defer {
+      project.remove()
+    }
+    try Self.addSharedPackageBeside(project)
+    let unneeded = try #require(project.read("Sources/Lib/Unneeded.swift"))
+    try project.write("import Shared\n" + unneeded, to: "Sources/Lib/Unneeded.swift")
+    let configuration = Configuration()
+    var options = PruneOptions(work: project.scratch)
+    options.files = ["Sources/Lib/Sharing.swift", "Sources/Lib/Unneeded.swift"]
+    options.modules = .named(["Shared"])
+    options.lockName = Self.lockName
+    var printed: [String] = []
+
+    // when
+    let (_, removable) = try ImportPruner(
+      model: try project.load(configuration),
+      configuration: configuration,
+      options: options,
+      progress: { _ in },
+      output: { printed.append($0) }
+    )
+    .run()
+
+    // then: Sharing.swift uses Shared; Unneeded.swift does not.
+    #expect(removable == 1)
+    #expect(printed.contains("Sources/Lib/Unneeded.swift:1: import Shared"))
+  }
+
+  /// Puts Shared, a package of its own, beside the project, and makes Lib use it through
+  /// `.package(path: "../Shared")` in `Sources/Lib/Sharing.swift`.
+  static func addSharedPackageBeside(_ project: FixtureProject) throws {
+    let shared = project.root.deletingLastPathComponent().appendingPathComponent("Shared")
+    try TextFiles.write(
+      """
+      // swift-tools-version: 6.0
+      import PackageDescription
+
+      let package = Package(
+        name: "Shared",
+        products: [.library(name: "Shared", targets: ["Shared"])],
+        targets: [.target(name: "Shared")]
+      )
+
+      """,
+      to: shared.appendingPathComponent("Package.swift")
+    )
+    try TextFiles.write(
+      "public let sharedValue = 1\n\npublic func unusedShared() -> Int {\n  2\n}\n",
+      to: shared.appendingPathComponent("Sources/Shared/Shared.swift")
+    )
+    let manifest = try #require(project.read("Package.swift"))
+    try project.write(
+      manifest
+        .replacingOccurrences(
+          of: "  targets: [",
+          with: #"  dependencies: [.package(path: "../Shared")],"# + "\n  targets: ["
+        )
+        .replacingOccurrences(
+          of: #".target(name: "Lib", dependencies: ["Helper"]),"#,
+          with: #".target(name: "Lib", dependencies: ["Helper", "#
+            + #".product(name: "Shared", package: "Shared")]),"#
+        ),
+      to: "Package.swift"
+    )
+    try project.write(
+      "import Shared\n\npublic let fromShared = sharedValue\n",
+      to: "Sources/Lib/Sharing.swift"
+    )
+    _ = try project.git(["add", "--all"])
+  }
 }
 
 @Suite

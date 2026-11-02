@@ -3,9 +3,9 @@ import Foundation
 /// `scan`: copy the project, build it with an index store, run Periphery with and without
 /// tests, and write the triage report.
 ///
-/// Everything goes under the output directory: `source/` (the copy), `build/` or
-/// `DerivedData/`, `all.json`, `prod.json`, their `.err` logs, `report.md` and
-/// `environment.txt`. The working tree is only read.
+/// Everything goes under the output directory: `source/` (the copy, with the local packages
+/// outside the project it needs), `build/` or `DerivedData/`, `all.json`, `prod.json`, their
+/// `.err` logs, `report.md` and `environment.txt`. The working tree is only read.
 public struct ScanRunner: Sendable {
   public static let lockName = "swift-dead-code-build.lock"
 
@@ -44,13 +44,7 @@ public struct ScanRunner: Sendable {
       withExtendedLifetime(lock) {}
     }
 
-    let copy = output.appendingPathComponent("source")
-    if !skipBuild {
-      progress("copying the project into \(copy.path)")
-      try WorkingCopy(source: model.root, copy: copy, runner: runner).refresh()
-    }
-    let build = try ProjectBuilder(model: model, configuration: configuration, runner: runner)
-      .build(copy: copy, work: output, skipBuild: skipBuild, progress: progress)
+    let (copy, build) = try indexedBuild(output: output, skipBuild: skipBuild, progress: progress)
 
     let configFile = try writePeripheryConfiguration(in: output, progress: progress)
     let common = scanner.commonArguments(build: build, configFile: configFile)
@@ -106,6 +100,33 @@ private struct ScanPaths {
 }
 
 private extension ScanRunner {
+  /// Copies the project into `source/` and builds the copy, or with `skipBuild` only finds the
+  /// last build's index store. Returns the project's copy and its build.
+  func indexedBuild(
+    output: URL,
+    skipBuild: Bool,
+    progress: (String) -> Void
+  ) throws -> (copy: URL, build: IndexedBuild) {
+    let workingCopy = try WorkingCopy(
+      model: model,
+      directory: output.appendingPathComponent("source"),
+      runner: runner
+    )
+    if !skipBuild {
+      progress("copying the project into \(workingCopy.copy.path)")
+      try workingCopy.refresh()
+    }
+    var build = try ProjectBuilder(model: model, configuration: configuration, runner: runner)
+      .build(copy: workingCopy.copy, work: output, skipBuild: skipBuild, progress: progress)
+    // Local packages outside the project are dependencies too, unless one holds the project.
+    // The index has their paths with every link resolved.
+    let project = TextFiles.realPath(workingCopy.copy) + "/"
+    build.dependencyExcludes += workingCopy.packages.map { TextFiles.realPath($0.copy) }
+      .filter { !project.hasPrefix($0 + "/") }
+      .map { $0 + "/**" }
+    return (workingCopy.copy, build)
+  }
+
   /// Writes Periphery's configuration, so a project's own `.periphery.yml` cannot apply.
   func writePeripheryConfiguration(in output: URL, progress: (String) -> Void) throws -> URL {
     let configFile = output.appendingPathComponent("periphery.yml")

@@ -139,9 +139,12 @@ applying it. Add `--strict` to make removable imports fail CI. The
 [example GitHub Actions workflow](examples/github-workflow.yml) runs these checks on a
 weekly schedule.
 
-Both `scan` and `prune-imports` build in a copy inside their output directory. Reuse a
-directory for each command to preserve the build cache. A machine-wide lock serializes
-these builds. Xcode builds use a simulator destination by default, with code signing off.
+Both `scan` and `prune-imports` build in a copy inside their output directory. They also copy
+each local package outside the project root that the build needs, such as
+`.package(path: "../Shared")` or an Xcode local package reference, to the same place relative
+to the project. Reuse a directory for each command to preserve the build cache. A
+machine-wide lock serializes these builds. Xcode builds use a simulator destination by
+default, with code signing off.
 
 ## Commands
 
@@ -279,6 +282,11 @@ findings.
 `scan` supplies its own Periphery configuration and ignores the project's `.periphery.yml`.
 Move those options to `periphery.arguments`. Results cover the platforms and configurations
 you build. Use `builds` to cover several; a reference in any of them keeps the declaration.
+
+The scan leaves local packages outside the project root out of the index, as it does with
+remote packages, so the report lists none of their declarations. A package that contains the
+project stays in the index: an example app that depends on its library through `../..` gets
+findings in the library too.
 
 Targets that share a module name can produce false positives in a merged index. For these
 projects, the scan uses an index per build and checks findings against each build that

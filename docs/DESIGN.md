@@ -416,9 +416,17 @@ records the toolchain in `DIR/environment.txt`.
 ## 9. Working-tree safety
 
 `check`, `triage`, `baseline` (without `--write`), `describe` and `init` only read. `scan`
-and `prune-imports` write only under their `--output`/`--work` directory. `baseline --write`
-writes only the configured baseline file. Tests verify that a fixture's `git status` is
-unchanged after each read-only command.
+and `prune-imports` write only under their `--output`/`--work` directory. They build in a copy
+there (`source/`, `copy/`), together with the local packages outside the project that the build
+needs: `.package(path:)` dependencies and Xcode local package references that leave the root,
+followed through the packages they reach. Each package keeps its place relative to the
+project's copy, so `../Shared` resolves in the copy as in the project. A package two levels up
+puts the project's copy two levels down (`source/Apps/App` beside `source/Libs/Shared`); a
+package that contains the project adds one level more, because SwiftPM takes a local package's
+identity from its directory name. Only `scan` and `prune-imports` read those packages'
+manifests, so `check` evaluates none outside the project. `baseline --write` writes only the
+configured baseline file. Tests verify that a fixture's `git status` is unchanged after each
+read-only command.
 
 ## 10. Evals policy
 
@@ -470,6 +478,10 @@ from swift-claw) and SwiftLint (`.swiftlint.yml` modeled on swift-claw) with the
   tool reports which targets have non-Swift sources and limits itself to Swift.
 - CocoaPods dependency declarations (Ruby) are not checked by the gate.
 - XcodeGen and Tuist manifests are not read; generate the project first.
+- `scan` keeps local packages outside the project out of the index, as it does remote
+  checkouts, except a package that contains the project (an example app's library, reached by
+  `../..`): that one stays in the index, and its declarations appear in the results with paths
+  outside the project.
 
 ## 14. Changes after the independent review (2026-10-30)
 

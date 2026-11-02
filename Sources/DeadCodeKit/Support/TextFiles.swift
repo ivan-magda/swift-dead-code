@@ -42,6 +42,28 @@ public enum TextFiles {
     return String(path.dropFirst(prefix.count))
   }
 
+  /// The path from the directory `base` to `path`, both absolute and normalized, climbing with
+  /// `..` where needed: `../Shared` for a sibling of `base`.
+  static func relativePath(of path: String, from base: String) -> String {
+    let target = path.split(separator: "/")
+    let start = base.split(separator: "/")
+    let common = zip(target, start).prefix { $0 == $1 }.count
+    let climb = Array(repeating: "..", count: start.count - common)
+    return (climb + target.dropFirst(common).map(String.init)).joined(separator: "/")
+  }
+
+  /// The path with every link resolved, as a process running there sees its directory:
+  /// `/private/var/...` for `/var/...`, which `resolvingSymlinksInPath()` shortens instead.
+  static func realPath(_ url: URL) -> String {
+    guard let resolved = realpath(url.path, nil) else {
+      return url.standardizedFileURL.path
+    }
+    defer {
+      free(resolved)
+    }
+    return String(cString: resolved)
+  }
+
   /// Joins and normalizes a relative path: `a/./b/../c` becomes `a/c`.
   public static func normalize(_ path: String) -> String {
     var components: [Substring] = []

@@ -39,7 +39,8 @@ public struct XcodeProjectAdapter: Sendable {
       targets: context.targets,
       externalModules: context.externalModules,
       buildSettingText: context.buildSettingLines.sorted().joined(separator: "\n"),
-      membershipFiles: context.membershipFiles
+      membershipFiles: context.membershipFiles,
+      localPackageDependencies: context.localPackages.union(context.packageDependencies)
     )
   }
 }
@@ -53,8 +54,11 @@ private struct LoadContext {
   var externalModules: Set<String> = []
   var buildSettingLines: Set<String> = []
   var membershipFiles: Set<String> = []
-  /// Local package directories, relative to the root.
+  /// Local package directories inside the root, relative to it: the load reads them.
   var localPackages: Set<String> = []
+  /// Other local packages the projects and the loaded packages depend on, relative to the root:
+  /// `../Shared` for one beside it.
+  var packageDependencies: Set<String> = []
   /// Unresolved dependencies on targets of other projects, by depending target.
   var remoteTargetDependencies: [String: Set<String>] = [:]
   var loadedProjects: Set<String> = []
@@ -67,6 +71,21 @@ private struct LoadContext {
 
   func relative(_ url: URL) -> String? {
     TextFiles.relativePath(of: url, under: root)
+  }
+
+  /// Adds a local package: one inside the root is loaded with the project; one outside it is
+  /// only remembered, since a build in a copy of the root needs it beside the copy.
+  mutating func addLocalPackage(_ directory: URL) {
+    if let path = relative(directory) {
+      localPackages.insert(TextFiles.normalize(path))
+    } else {
+      packageDependencies.insert(
+        TextFiles.relativePath(
+          of: directory.standardizedFileURL.path,
+          from: root.standardizedFileURL.path
+        )
+      )
+    }
   }
 
   /// Adds a dependency on a target of another project once every project is loaded.
@@ -168,8 +187,8 @@ private extension XcodeProjectAdapter {
       try loadProject(at: url, context: &context)
     case .folder(let url):
       let manifest = url.appendingPathComponent("Package.swift")
-      if FileManager.default.fileExists(atPath: manifest.path), let path = context.relative(url) {
-        context.localPackages.insert(path)
+      if FileManager.default.fileExists(atPath: manifest.path) {
+        context.addLocalPackage(url)
       }
     }
   }
@@ -240,10 +259,7 @@ private extension XcodeProjectAdapter {
       context.buildSettingLines.insert(([phase.shellScript ?? ""] + paths).joined(separator: "\n"))
     }
     for package in pbxproj.rootObject?.localPackages ?? [] {
-      let directory = sourceRoot.appendingPathComponent(package.relativePath)
-      if let path = context.relative(directory) {
-        context.localPackages.insert(TextFiles.normalize(path))
-      }
+      context.addLocalPackage(sourceRoot.appendingPathComponent(package.relativePath))
     }
     for reference in pbxproj.fileReferences {
       try Self.recordFolderPackage(reference, sourceRoot: sourceRoot, context: &context)
@@ -415,12 +431,11 @@ private extension XcodeProjectAdapter {
   ) throws {
     guard
       let path = try? reference.fullPath(sourceRoot: Path(sourceRoot.path)),
-      FileManager.default.fileExists(atPath: path.string + "/Package.swift"),
-      let relative = context.relative(URL(fileURLWithPath: path.string))
+      FileManager.default.fileExists(atPath: path.string + "/Package.swift")
     else {
       return
     }
-    context.localPackages.insert(relative)
+    context.addLocalPackage(URL(fileURLWithPath: path.string))
   }
 
   static func target(
@@ -601,6 +616,7 @@ private extension XcodeProjectAdapter {
       )
       context.targets.append(contentsOf: package.targets)
       context.externalModules.formUnion(package.externalModules)
+      context.packageDependencies.formUnion(package.localPackageDependencies)
     }
     // Products of local packages are project code, which Periphery already analyzes.
     let localModules = context.targets.filter { $0.manifestPath.hasSuffix("Package.swift") }

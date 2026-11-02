@@ -15,28 +15,7 @@ public struct SwiftPackageAdapter: Sendable {
     prefix: String = "",
     configuration: Configuration
   ) throws -> ProjectModel {
-    // Without a scratch path, SwiftPM creates .build/ in the project. It keeps a lock file for
-    // each scratch path in TMPDIR, so TMPDIR is this directory too and nothing outlives it.
-    let scratch = FileManager.default.temporaryDirectory
-      .appendingPathComponent("swift-dead-code-manifest-\(UUID().uuidString)")
-    try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
-    defer {
-      try? FileManager.default.removeItem(at: scratch)
-    }
-    let json = try runner.output(
-      of: Command(
-        "swift",
-        ["package", "--scratch-path", scratch.path, "dump-package"],
-        in: packageRoot,
-        environment: ["TMPDIR": scratch.path]
-      )
-    )
-    let manifest: DumpedPackage
-    do {
-      manifest = try JSONDecoder().decode(DumpedPackage.self, from: Data(json.utf8))
-    } catch {
-      throw DeadCodeError.usage("cannot read `swift package dump-package` output: \(error)")
-    }
+    let manifest = try dump(packageRoot)
     // SwiftPM compiles untracked files in a target directory, so their imports count.
     let files = try Git(directory: packageRoot, runner: runner).trackedAndUntrackedFiles()
     let sourceFiles = files.filter { path in
@@ -62,12 +41,46 @@ public struct SwiftPackageAdapter: Sendable {
     let externalModules = Set(
       targets.flatMap(\.dependencies).filter { $0.kind == .product }.flatMap(\.moduleNames)
     )
+    let localPackages = Self.localPackages(of: manifest, at: packageRoot).map { path in
+      TextFiles.normalize(Self.join(prefix, path))
+    }
     return ProjectModel(
       kind: .swiftPackage,
       root: packageRoot,
       targets: targets,
-      externalModules: externalModules
+      externalModules: externalModules,
+      localPackageDependencies: Set(localPackages)
     )
+  }
+
+  /// The local packages the package at `packageRoot` depends on by path, relative to it.
+  func localPackageDependencies(of packageRoot: URL) throws -> [String] {
+    Self.localPackages(of: try dump(packageRoot), at: packageRoot)
+  }
+
+  /// The manifest of the package at `packageRoot`, from `swift package dump-package`.
+  private func dump(_ packageRoot: URL) throws -> DumpedPackage {
+    // Without a scratch path, SwiftPM creates .build/ in the project. It keeps a lock file for
+    // each scratch path in TMPDIR, so TMPDIR is this directory too and nothing outlives it.
+    let scratch = FileManager.default.temporaryDirectory
+      .appendingPathComponent("swift-dead-code-manifest-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
+    defer {
+      try? FileManager.default.removeItem(at: scratch)
+    }
+    let json = try runner.output(
+      of: Command(
+        "swift",
+        ["package", "--scratch-path", scratch.path, "dump-package"],
+        in: packageRoot,
+        environment: ["TMPDIR": scratch.path]
+      )
+    )
+    do {
+      return try JSONDecoder().decode(DumpedPackage.self, from: Data(json.utf8))
+    } catch {
+      throw DeadCodeError.usage("cannot read `swift package dump-package` output: \(error)")
+    }
   }
 }
 
@@ -153,21 +166,43 @@ struct DumpedPackage: Decodable {
     }
   }
 
+  /// A package dependency; only `.package(path:)` matters, `{"fileSystem": [{"path": ...}]}`
+  /// with the path absolute.
+  struct PackageDependency: Decodable {
+    var path: String?
+
+    init(from decoder: any Decoder) throws {
+      let container = try decoder.container(keyedBy: CodingKeys.self)
+      let locations = try container.decodeIfPresent([JSONValue].self, forKey: .fileSystem) ?? []
+      if case .object(let location)? = locations.first {
+        path = location["path"]?.string
+      }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+      case fileSystem
+    }
+  }
+
   var name: String
   var targets: [Target]
   var products: [Product]
+  var dependencies: [PackageDependency]
 
   init(from decoder: any Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     name = try container.decode(String.self, forKey: .name)
     targets = try container.decode([Target].self, forKey: .targets)
     products = try container.decodeIfPresent([Product].self, forKey: .products) ?? []
+    dependencies =
+      try container.decodeIfPresent([PackageDependency].self, forKey: .dependencies) ?? []
   }
 
   private enum CodingKeys: String, CodingKey {
     case name
     case targets
     case products
+    case dependencies
   }
 }
 
@@ -362,5 +397,14 @@ private extension SwiftPackageAdapter {
 
   static func join(_ prefix: String, _ path: String) -> String {
     prefix.isEmpty ? path : (path.isEmpty ? prefix : "\(prefix)/\(path)")
+  }
+
+  /// The packages `manifest` depends on by path, relative to its package: `../Shared`.
+  static func localPackages(of manifest: DumpedPackage, at packageRoot: URL) -> [String] {
+    // SwiftPM resolves such a path from the package directory with every link resolved.
+    let base = TextFiles.realPath(packageRoot)
+    return manifest.dependencies.compactMap(\.path).map { path in
+      TextFiles.relativePath(of: path, from: base)
+    }
   }
 }

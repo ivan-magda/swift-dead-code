@@ -37,10 +37,15 @@ final class PruneWorkspace {
     files: [String],
     runner: any CommandRunning
   ) throws {
+    let workingCopy = try WorkingCopy(
+      model: model,
+      directory: work.appendingPathComponent("copy"),
+      runner: runner
+    )
     self.model = model
     self.configuration = configuration
     self.work = work
-    self.copy = work.appendingPathComponent("copy")
+    self.copy = workingCopy.copy
     self.runner = runner
     self.log = work.appendingPathComponent("build.log")
     var lines: [String: [String]] = [:]
@@ -51,7 +56,7 @@ final class PruneWorkspace {
       lines[path] = Self.linesKeepingEndings(text)
     }
     originalLines = lines
-    try WorkingCopy(source: model.root, copy: copy, runner: runner).refresh()
+    try workingCopy.refresh()
   }
 
   /// Writes every checked file into the copy without the removed import lines.

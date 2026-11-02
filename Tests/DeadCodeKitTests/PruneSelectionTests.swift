@@ -108,6 +108,109 @@ struct PruneSelectionTests {
     #expect(copied[.type] as? FileAttributeType == .typeRegular)
   }
 
+  @Test(
+    arguments: [
+      // App reaches Libs/Shared two levels up, and through it Libs/Core.
+      (
+        ["Apps/App": ["../../Libs/Shared"], "Libs/Shared": ["../Core"], "Libs/Core": []],
+        "Apps/App", ["../../Libs/Shared", "../../Libs/Core"]
+      ),
+      // Kit holds App: Kit's copy needs a directory of its own, named Kit.
+      (["Kit/Examples/App": ["../.."], "Kit": []], "Kit/Examples/App", ["../.."]),
+    ]
+  )
+  func everyLocalPackageLeadsToACopyOfTheSameName(
+    packages: [String: [String]],
+    project: String,
+    reached: [String]
+  ) throws {
+    // given: packages below a temporary directory that depend on each other by path.
+    let directory = FileManager.default.temporaryDirectory
+      .appendingPathComponent("swift-dead-code-tests-\(UUID().uuidString)")
+    defer {
+      try? FileManager.default.removeItem(at: directory)
+    }
+    for (path, dependencies) in packages {
+      try Self.writePackage(dependencies: dependencies, at: directory.appendingPathComponent(path))
+    }
+    let root = directory.appendingPathComponent(project)
+    _ = try ProcessRunner().output(of: Command("git", ["init", "--quiet"], in: root))
+    let model = try ProjectLoader().load(root: root, configuration: Configuration())
+    let work = directory.appendingPathComponent("work/source")
+
+    // when
+    let workingCopy = try WorkingCopy(model: model, directory: work)
+    try workingCopy.refresh()
+
+    // then: each path leads from the copy, inside the work directory, to a package whose
+    // directory has the name SwiftPM takes as its identity.
+    for path in reached {
+      let copied = workingCopy.copy.appendingPathComponent(path).standardizedFileURL
+      let original = root.appendingPathComponent(path).standardizedFileURL
+      #expect(copied.path.hasPrefix(work.path + "/"))
+      #expect(copied.lastPathComponent == original.lastPathComponent)
+      #expect(
+        FileManager.default.fileExists(atPath: copied.appendingPathComponent("Package.swift").path)
+      )
+    }
+  }
+
+  @Test(.enabled(if: Tools.hasXcodeGen))
+  func anXcodeLocalPackageBesideTheProjectIsCopiedBesideItsCopy() throws {
+    // given: the project references Shared, a local package beside it.
+    let project = try FixtureProject.copy("XcodeShop")
+    defer {
+      project.remove()
+    }
+    let shared = project.root.deletingLastPathComponent().appendingPathComponent("Shared")
+    try Self.writePackage(dependencies: [], at: shared)
+    let spec = try #require(project.read("project.yml"))
+    try project.write(
+      spec.replacingOccurrences(
+        of: "    path: Packages/Feature\n",
+        with: "    path: Packages/Feature\n  Shared:\n    path: ../Shared\n"
+      ),
+      to: "project.yml"
+    )
+    try project.generateXcodeProject()
+    let work = project.scratch.appendingPathComponent("source")
+
+    // when
+    let workingCopy = try WorkingCopy(model: try project.load(), directory: work)
+    try workingCopy.refresh()
+
+    // then
+    let copied = workingCopy.copy.appendingPathComponent("../Shared").standardizedFileURL
+    #expect(copied.path.hasPrefix(work.path + "/"))
+    #expect(
+      FileManager.default.fileExists(atPath: copied.appendingPathComponent("Package.swift").path)
+    )
+  }
+
+  /// Writes a package with one library target; `dependencies` are `.package(path:)` paths.
+  static func writePackage(dependencies: [String], at directory: URL) throws {
+    let name = directory.lastPathComponent
+    let packages = dependencies.map { #".package(path: "\#($0)")"# }.joined(separator: ", ")
+    try TextFiles.write(
+      """
+      // swift-tools-version: 6.0
+      import PackageDescription
+
+      let package = Package(
+        name: "\(name)",
+        dependencies: [\(packages)],
+        targets: [.target(name: "\(name)")]
+      )
+
+      """,
+      to: directory.appendingPathComponent("Package.swift")
+    )
+    try TextFiles.write(
+      "public let value = 1\n",
+      to: directory.appendingPathComponent("Sources/\(name)/\(name).swift")
+    )
+  }
+
   @Test
   func readsTheTargetsAnXcodeBuildCovers() {
     // given: the dependency graph Xcode 27 printed for Presentr's example app, abridged.
