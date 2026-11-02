@@ -19,14 +19,19 @@ defaults:
 jobs:
   test:
     name: Test (${{ matrix.xcode }} Xcode)
-    runs-on: macos-26
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        # The Xcode that BuildTools/lint-versions.env pins, and the oldest Xcode 26 on the image,
-        # which checks the Swift version that Package.swift declares.
-        xcode: [pinned, oldest]
+        # The Xcode that BuildTools/lint-versions.env pins, on the xcode-27 image (macos-26 stops
+        # at Xcode 26.6), and the oldest Xcode 26 on macos-26, which checks the Swift version that
+        # Package.swift declares.
+        include:
+          - xcode: pinned
+            runner: xcode-27
+          - xcode: oldest
+            runner: macos-26
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -85,7 +90,8 @@ jobs:
         run: swift run swift-dead-code check
 
   lint:
-    runs-on: macos-26
+    # swift-format comes with the pinned Xcode.
+    runs-on: xcode-27
     timeout-minutes: 15
     steps:
       - name: Check out repository
