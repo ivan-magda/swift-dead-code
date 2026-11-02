@@ -27,7 +27,7 @@ env:
   PERIPHERY_VERSION: 3.8.0
   SWIFT_DEAD_CODE_VERSION: 0.1.0
   # The SHA-256 of swift-dead-code-<version>-macos.zip, from checksums.txt in the release.
-  SWIFT_DEAD_CODE_SHA256: set-from-checksums-txt
+  SWIFT_DEAD_CODE_SHA256: 354dd699d5e62012c75ade0ab3fda8038ca50879f551cc88c7bae767f2ec1e03
 
 defaults:
   run:
