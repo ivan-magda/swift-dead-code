@@ -35,7 +35,7 @@ mint install ivan-magda/swift-dead-code       # built from source
 
 Every [release](https://github.com/ivan-magda/swift-dead-code/releases) has the same binary as
 `swift-dead-code-<version>-macos.zip`, with its SHA-256 in `checksums.txt`. To build from a clone
-(Swift 6.2 or later; tested with 6.4):
+(Swift 6.2 or later):
 
 ```bash
 swift build -c release

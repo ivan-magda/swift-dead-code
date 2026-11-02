@@ -18,19 +18,18 @@ defaults:
 
 jobs:
   test:
-    name: Test (${{ matrix.xcode }} Xcode)
+    name: Test (Xcode ${{ matrix.xcode }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
         # The Xcode that BuildTools/lint-versions.env pins, on the xcode-27 image (macos-26 stops
-        # at Xcode 26.6), and the oldest Xcode 26 on macos-26, which checks the Swift version that
-        # Package.swift declares.
+        # at Xcode 26.6), and Xcode 26.0, the first with Swift 6.2, which Package.swift declares.
         include:
           - xcode: pinned
             runner: xcode-27
-          - xcode: oldest
+          - xcode: "26.0"
             runner: macos-26
     steps:
       - name: Check out repository
@@ -38,24 +37,18 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Select Xcode
-        id: xcode
+      - name: Read the Xcode version
+        id: pins
         run: |
           source BuildTools/lint-versions.env
-          if [[ "${{ matrix.xcode }}" == pinned ]]; then
-            app="/Applications/Xcode_${DEADCODE_XCODE_VERSION}.app"
-          else
-            candidates=(/Applications/Xcode_26*.app)
-            app=$(printf '%s\n' "${candidates[@]}" | sort -V | head -1)
-          fi
-          if [[ ! -d "$app" ]]; then
-            installed=(/Applications/Xcode*.app)
-            echo "::error::Xcode '$app' is not on this image. Installed: ${installed[*]}"
-            exit 1
-          fi
-          sudo xcode-select --switch "$app"
-          swift --version
-          printf 'version=%s\n' "$(xcodebuild -version | head -1 | cut -d' ' -f2)" >> "$GITHUB_OUTPUT"
+          xcode="${{ matrix.xcode }}"
+          [[ "$xcode" != pinned ]] || xcode=$DEADCODE_XCODE_VERSION
+          printf 'xcode=%s\n' "$xcode" >> "$GITHUB_OUTPUT"
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: ${{ steps.pins.outputs.xcode }}
 
       - name: Install Periphery and XcodeGen
         run: |
@@ -72,7 +65,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: .build
-          key: build-xcode-${{ steps.xcode.outputs.version }}-${{ hashFiles('Package.resolved') }}
+          key: build-xcode-${{ steps.pins.outputs.xcode }}-${{ hashFiles('Package.resolved') }}
 
       - name: Build
         run: swift build --build-tests
@@ -99,10 +92,20 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Select Xcode and install SwiftLint
+      - name: Read the Xcode version
+        id: pins
         run: |
           source BuildTools/lint-versions.env
-          sudo xcode-select --switch "/Applications/Xcode_${DEADCODE_XCODE_VERSION}.app"
+          printf 'xcode=%s\n' "$DEADCODE_XCODE_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: ${{ steps.pins.outputs.xcode }}
+
+      - name: Install SwiftLint
+        run: |
+          source BuildTools/lint-versions.env
           archive="$RUNNER_TEMP/swiftlint.zip"
           curl --fail --location --silent --show-error --output "$archive" \
             "https://github.com/realm/SwiftLint/releases/download/${DEADCODE_SWIFTLINT_VERSION}/portable_swiftlint.zip"

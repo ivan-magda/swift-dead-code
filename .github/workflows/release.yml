@@ -28,10 +28,16 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Select Xcode
+      - name: Read the Xcode version
+        id: pins
         run: |
           source BuildTools/lint-versions.env
-          sudo xcode-select --switch "/Applications/Xcode_${DEADCODE_XCODE_VERSION}.app"
+          printf 'xcode=%s\n' "$DEADCODE_XCODE_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: ${{ steps.pins.outputs.xcode }}
 
       - name: Build the binary and the artifact bundle
         run: scripts/release.sh "$GITHUB_REF_NAME" "$RUNNER_TEMP/release"
