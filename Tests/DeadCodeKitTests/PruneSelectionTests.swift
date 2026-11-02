@@ -99,7 +99,7 @@ struct PruneSelectionTests {
     let copy = directory.appendingPathComponent("copy")
 
     // when
-    try WorkingCopy(source: source, copy: copy).refresh()
+    try WorkingCopy(source: source, copy: copy, output: copy).refresh()
 
     // then
     let copied = try FileManager.default.attributesOfItem(
@@ -142,7 +142,11 @@ struct PruneSelectionTests {
     let work = directory.appendingPathComponent("work/source")
 
     // when
-    let workingCopy = try WorkingCopy(model: model, directory: work)
+    let workingCopy = try WorkingCopy(
+      model: model,
+      directory: work,
+      output: directory.appendingPathComponent("work")
+    )
     try workingCopy.refresh()
 
     // then: each path leads from the copy, inside the work directory, to a package whose
@@ -156,6 +160,46 @@ struct PruneSelectionTests {
         FileManager.default.fileExists(atPath: copied.appendingPathComponent("Package.swift").path)
       )
     }
+  }
+
+  @Test(
+    arguments: [
+      // Kit holds App, and the output sits in Kit beside App.
+      (["Kit/Examples/App": ["../.."], "Kit": []], "Kit/Examples/App", "Kit/Examples/out"),
+      // The output sits inside the project, outside `.build`.
+      (["App": []], "App", "App/tmp/scan"),
+    ]
+  )
+  func noCopyTakesInTheOutputDirectory(
+    packages: [String: [String]],
+    project: String,
+    output: String
+  ) throws {
+    // given: a report that the previous run left in the output directory.
+    let directory = FileManager.default.temporaryDirectory
+      .appendingPathComponent("swift-dead-code-tests-\(UUID().uuidString)")
+    defer {
+      try? FileManager.default.removeItem(at: directory)
+    }
+    for (path, dependencies) in packages {
+      try FixtureProject.writePackage(
+        at: directory.appendingPathComponent(path),
+        dependencies: dependencies
+      )
+    }
+    let root = directory.appendingPathComponent(project)
+    _ = try ProcessRunner().output(of: Command("git", ["init", "--quiet"], in: root))
+    let model = try ProjectLoader().load(root: root, configuration: Configuration())
+    let out = directory.appendingPathComponent(output)
+    try TextFiles.write("previous run\n", to: out.appendingPathComponent("report.md"))
+
+    // when
+    try WorkingCopy(model: model, directory: out.appendingPathComponent("source"), output: out)
+      .refresh()
+
+    // then
+    let copied = FileManager.default.enumerator(atPath: out.appendingPathComponent("source").path)
+    #expect(!(copied?.allObjects as? [String] ?? []).contains { $0.hasSuffix("report.md") })
   }
 
   @Test(.enabled(if: Tools.hasXcodeGen))
@@ -179,7 +223,11 @@ struct PruneSelectionTests {
     let work = project.scratch.appendingPathComponent("source")
 
     // when
-    let workingCopy = try WorkingCopy(model: try project.load(), directory: work)
+    let workingCopy = try WorkingCopy(
+      model: try project.load(),
+      directory: work,
+      output: project.scratch
+    )
     try workingCopy.refresh()
 
     // then

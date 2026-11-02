@@ -15,17 +15,22 @@ public struct WorkingCopy: Sendable {
   public let copy: URL
   /// The local packages outside the project that a build needs, and where their copies go.
   public let packages: [(source: URL, copy: URL)]
+  /// The command's output directory, which holds the copy and the builds: no copy takes it in,
+  /// whether it lies in the project or in one of its packages.
+  public let output: URL
   let runner: any CommandRunning
 
   public init(
     source: URL,
     copy: URL,
     packages: [(source: URL, copy: URL)] = [],
+    output: URL,
     runner: any CommandRunning = ProcessRunner()
   ) {
     self.source = source
     self.copy = copy
     self.packages = packages
+    self.output = output
     self.runner = runner
   }
 
@@ -35,6 +40,7 @@ public struct WorkingCopy: Sendable {
   public init(
     model: ProjectModel,
     directory: URL,
+    output: URL,
     runner: any CommandRunning = ProcessRunner()
   )
     throws
@@ -68,6 +74,7 @@ public struct WorkingCopy: Sendable {
       source: model.root,
       copy: place.isEmpty ? directory : directory.appendingPathComponent(place),
       packages: packages,
+      output: output,
       runner: runner
     )
   }
@@ -90,6 +97,11 @@ private extension WorkingCopy {
     var arguments = ["-a", "--delete", "--copy-unsafe-links"]
     for directory in Self.excludedDirectories {
       arguments.append("--exclude=\(directory)")
+    }
+    // A tree that holds the output would copy the copy and the builds into itself; the leading
+    // slash anchors the pattern to the tree's root.
+    if let path = TextFiles.relativePath(of: output, under: source), !path.isEmpty {
+      arguments.append("--exclude=/\(path)")
     }
     // The trailing slashes copy the contents into the copy, not the directory beside it.
     arguments += [source.path + "/", copy.path + "/"]

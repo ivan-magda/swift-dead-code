@@ -9,6 +9,8 @@ Notable changes to swift-dead-code. Versions follow [Semantic Versioning](https:
   stop with "the package at '…' cannot be accessed"; both commands now copy the package beside
   the project's copy. `scan` leaves such a package out of its results, as it does remote
   packages, unless the package contains the project.
+- An `--output` or `--work` directory inside the project, outside `.build`, no longer ends up in
+  the project's copy, where every rerun copied the previous copy and builds one level deeper.
 
 ## 0.1.1 (2026-11-02)
 

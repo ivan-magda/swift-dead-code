@@ -40,6 +40,7 @@ final class PruneWorkspace {
     let workingCopy = try WorkingCopy(
       model: model,
       directory: work.appendingPathComponent("copy"),
+      output: work,
       runner: runner
     )
     self.model = model

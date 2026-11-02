@@ -110,6 +110,7 @@ private extension ScanRunner {
     let workingCopy = try WorkingCopy(
       model: model,
       directory: output.appendingPathComponent("source"),
+      output: output,
       runner: runner
     )
     if !skipBuild {

@@ -424,9 +424,11 @@ project's copy, so `../Shared` resolves in the copy as in the project. A package
 puts the project's copy two levels down (`source/Apps/App` beside `source/Libs/Shared`); a
 package that contains the project adds one level more, because SwiftPM takes a local package's
 identity from its directory name. Only `scan` and `prune-imports` read those packages'
-manifests, so `check` evaluates none outside the project. `baseline --write` writes only the
-configured baseline file. Tests verify that a fixture's `git status` is unchanged after each
-read-only command.
+manifests, so `check` evaluates none outside the project. A copied tree that holds the output
+directory (the project, or a package that contains the project) leaves that directory out, so
+no copy takes in the previous copy and builds. `baseline --write` writes only the configured
+baseline file. Tests verify that a fixture's `git status` is unchanged after each read-only
+command.
 
 ## 10. Evals policy
 
