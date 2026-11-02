@@ -194,20 +194,29 @@ private extension PruneWorkspace {
 // MARK: - Strictness
 
 private extension PruneWorkspace {
-  /// Appended to the copy's manifest to build some targets with MemberImportVisibility.
+  /// Appended to the copy's manifests to build some targets with MemberImportVisibility.
+  /// SwiftPM may read a version-specific manifest such as `Package@swift-6.swift` instead of
+  /// `Package.swift`, and PackageDescription before 5.8 has no `enableUpcomingFeature`.
   func appendStrictSuffix(manifest: String, targets: [String]) throws {
-    let url = copy.appendingPathComponent(manifest)
-    let original = try rememberOriginal(manifest)
+    let directory = (manifest as NSString).deletingLastPathComponent
+    let siblings = try FileManager.default.contentsOfDirectory(
+      atPath: copy.appendingPathComponent(directory).path
+    )
     let names = targets.sorted().map { "\"\($0)\"" }.joined(separator: ", ")
     let suffix = """
 
       for target in package.targets where [\(names)].contains(target.name) {
         target.swiftSettings =
-          (target.swiftSettings ?? []) + [.enableUpcomingFeature("MemberImportVisibility")]
+          (target.swiftSettings ?? [])
+          + [.unsafeFlags(["-enable-upcoming-feature", "MemberImportVisibility"])]
       }
 
       """
-    try TextFiles.write(original + suffix, to: url)
+    for name in siblings where name == "Package.swift" || name.hasPrefix("Package@swift-") {
+      let path = (directory as NSString).appendingPathComponent(name)
+      let original = try rememberOriginal(path)
+      try TextFiles.write(original + suffix, to: copy.appendingPathComponent(path))
+    }
   }
 
   func setStrictBuildSetting(project manifest: String, target name: String) throws {
@@ -270,16 +279,22 @@ private extension PruneWorkspace {
     var combined = CommandResult(status: 0, standardOutput: "", standardError: "")
     for variant in builder.variants {
       for scheme in try builder.schemes(of: variant, container: container) {
-        let arguments =
-          builder.xcodebuildArguments(
-            scheme: scheme,
-            variant: variant,
-            container: container,
-            derivedData: work.appendingPathComponent("DerivedData")
-          )
-          + ["OTHER_SWIFT_FLAGS=$(inherited) -continue-building-after-errors"]
+        let arguments = builder.xcodebuildArguments(
+          scheme: scheme,
+          variant: variant,
+          container: container,
+          derivedData: work.appendingPathComponent("DerivedData")
+        )
+        // xcodebuild keeps only the last assignment of a setting, so this one repeats the
+        // configured flags.
+        let flags =
+          arguments.last { $0.hasPrefix("OTHER_SWIFT_FLAGS=") } ?? "OTHER_SWIFT_FLAGS=$(inherited)"
         combined.append(
-          try builder.runScheme(arguments: arguments, forTesting: variant.forTesting, in: copy)
+          try builder.runScheme(
+            arguments: arguments + [flags + " -continue-building-after-errors"],
+            forTesting: variant.forTesting,
+            in: copy
+          )
         )
       }
     }

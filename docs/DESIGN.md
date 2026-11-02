@@ -198,8 +198,10 @@ several candidates the tool stops and asks for `project.path`. A `project.yml` (
 - External modules (`deps`): every product dependency of every target.
 - Build for scan: `swift build --build-tests --scratch-path W/build`; index store at
   `W/build/out` (Swift Build) or `W/build/debug/index/store` (native), whichever exists.
-- Strict check of one target: copy's manifest gets the MemberImportVisibility suffix for that
-  target; `swift build --build-system native --target T --scratch-path W/build-native
+- Strict check of one target: the copy's `Package.swift` and every `Package@swift-*.swift`
+  (SwiftPM may read one of those instead) get the MemberImportVisibility suffix for that
+  target, as `unsafeFlags`, which PackageDescription before 5.8 accepts too;
+  `swift build --build-system native --target T --scratch-path W/build-native
   -Xswiftc -continue-building-after-errors`.
 
 ### 5.2 Xcode adapter (`.xcodeproj`, `.xcworkspace`)

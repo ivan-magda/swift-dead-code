@@ -231,6 +231,43 @@ struct IntegrationTests {
     // then
     #expect(error?.message == "not checked: Lib")
   }
+
+  @Test(.timeLimit(.minutes(10)))
+  func theStrictCheckReachesAnOldVersionSpecificManifest() throws {
+    // given: SwiftPM 6 reads Package@swift-6.swift instead of Package.swift, and its
+    // PackageDescription 5.7 has no enableUpcomingFeature.
+    let project = try FixtureProject.copy("ScanPackage")
+    defer {
+      project.remove()
+    }
+    let manifest = try #require(project.read("Package.swift"))
+    try project.write(
+      manifest.replacingOccurrences(of: "6.0", with: "5.7")
+        .replacingOccurrences(of: ".v14", with: ".v13"),
+      to: "Package@swift-6.swift"
+    )
+    let configuration = Configuration()
+    var options = PruneOptions(work: project.scratch)
+    options.all = true
+    options.lockName = Self.lockName
+    var progress: [String] = []
+
+    // when
+    let (_, removable) = try ImportPruner(
+      model: try project.load(configuration),
+      configuration: configuration,
+      options: options,
+      progress: { progress.append($0) },
+      output: { _ in }
+    )
+    .run()
+
+    // then: Twin.swift compiles without its import only by borrowing Greeter.swift's.
+    #expect(removable == 1)
+    #expect(
+      progress.contains("prune: kept Sources/Lib/Twin.swift:1 (import Helper): the file borrows it")
+    )
+  }
 }
 
 @Suite
@@ -273,6 +310,34 @@ struct DescribeAndInitTests {
       model.target(named: "Tool")?.dependencies == [
         TargetDependency(name: "Core", moduleNames: ["Core"], kind: .target),
         TargetDependency(name: "Kit", moduleNames: ["Kit"], kind: .product),
+      ]
+    )
+  }
+
+  @Test
+  func aTargetWhoseSourcesAreItsDirectoryKeepsItsFiles() throws {
+    // given: `sources: ["."]` names the whole target directory, as leaving `sources` out does.
+    let project = try FixtureProject.copy("ScanPackage")
+    defer {
+      project.remove()
+    }
+    let manifest = try #require(project.read("Package.swift"))
+    try project.write(
+      manifest.replacingOccurrences(
+        of: #".target(name: "Lib", dependencies: ["Helper"]),"#,
+        with: #".target(name: "Lib", dependencies: ["Helper"], sources: ["."]),"#
+      ),
+      to: "Package.swift"
+    )
+
+    // when
+    let model = try project.load()
+
+    // then
+    #expect(
+      model.target(named: "Lib")?.sourceFiles == [
+        "Sources/Lib/Borrower.swift", "Sources/Lib/Greeter.swift", "Sources/Lib/Twin.swift",
+        "Sources/Lib/Unneeded.swift",
       ]
     )
   }

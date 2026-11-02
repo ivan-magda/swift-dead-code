@@ -44,7 +44,8 @@ public enum ImportScanner {
   public static func removableImports(in source: String, path: String) -> [ImportLine] {
     let tree = Parser.parse(source: source)
     let converter = SourceLocationConverter(fileName: path, tree: tree)
-    let lines = source.split(separator: "\n", omittingEmptySubsequences: false)
+    // "\r\n" is one Character, so splitting on "\n" alone would leave a CRLF file one line.
+    let lines = source.split(omittingEmptySubsequences: false) { $0 == "\n" || $0 == "\r\n" }
     var imports: [ImportLine] = []
     for item in tree.statements {
       guard

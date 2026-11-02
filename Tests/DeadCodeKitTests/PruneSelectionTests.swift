@@ -126,4 +126,51 @@ struct PruneSelectionTests {
     // then
     #expect(targets == ["PresentrExample", "Pods-PresentrExample", "Presentr"])
   }
+
+  @Test
+  func anXcodePruneBuildKeepsTheConfiguredSwiftFlags() throws {
+    // given: the configured build defines FEATURE; xcodebuild keeps only the last assignment
+    // of a setting, so the pruner's own flag must not replace it.
+    let work = FileManager.default.temporaryDirectory
+      .appendingPathComponent("swift-dead-code-tests-\(UUID().uuidString)")
+    defer {
+      try? FileManager.default.removeItem(at: work)
+    }
+    var configuration = Configuration()
+    configuration.project.schemes = ["App"]
+    configuration.project.buildArguments = ["OTHER_SWIFT_FLAGS=$(inherited) -DFEATURE"]
+    let runner = RecordingRunner()
+    let workspace = try PruneWorkspace(
+      model: ScanSetupTests.model,
+      configuration: configuration,
+      work: work,
+      files: [],
+      runner: runner
+    )
+
+    // when
+    _ = try workspace.build()
+
+    // then
+    let build = try #require(runner.commands.last)
+    #expect(
+      build.arguments.last { $0.hasPrefix("OTHER_SWIFT_FLAGS=") }
+        == "OTHER_SWIFT_FLAGS=$(inherited) -DFEATURE -continue-building-after-errors"
+    )
+  }
+}
+
+/// Records each command and reports success without running it.
+private final class RecordingRunner: CommandRunning, @unchecked Sendable {
+  private let lock = NSLock()
+  private var recorded: [Command] = []
+
+  var commands: [Command] {
+    lock.withLock { recorded }
+  }
+
+  func run(_ command: Command) throws -> CommandResult {
+    lock.withLock { recorded.append(command) }
+    return CommandResult(status: 0, standardOutput: "", standardError: "")
+  }
 }

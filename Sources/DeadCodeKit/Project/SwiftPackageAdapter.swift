@@ -292,8 +292,9 @@ private extension SwiftPackageAdapter {
     files: [String]
   ) -> [String] {
     let base = directory.isEmpty ? "" : directory + "/"
-    let excluded = (target.exclude + target.resources).map { base + TextFiles.normalize($0) }
-    let included = target.sources.map { base + TextFiles.normalize($0) }
+    // Normalized after joining, so `sources: ["."]` is the directory itself.
+    let excluded = (target.exclude + target.resources).map { TextFiles.normalize(base + $0) }
+    let included = target.sources.map { TextFiles.normalize(base + $0) }
     return files.filter { path in
       guard path.hasPrefix(base) else {
         return false

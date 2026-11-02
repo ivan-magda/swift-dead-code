@@ -62,6 +62,18 @@ struct ImportScannerTests {
     #expect(imports.map(\.line) == [1, 2, 3, 4])
     #expect(imports[1].text == "@testable import App")
   }
+
+  @Test
+  func findsImportsInAFileWithWindowsLineEndings() {
+    // when: Swift reads "\r\n" as one Character, not "\n".
+    let imports = ImportScanner.removableImports(
+      in: "import Foundation\r\n\r\nimport Kit\r\n",
+      path: "A.swift"
+    )
+
+    // then
+    #expect(imports.map(\.line) == [1, 3])
+  }
 }
 
 @Suite
