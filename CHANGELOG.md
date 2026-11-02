@@ -2,6 +2,13 @@
 
 Notable changes to swift-dead-code. Versions follow [Semantic Versioning](https://semver.org).
 
+## Unreleased
+
+- Removed the command plugin this package built from source: it added swift-syntax, XcodeProj
+  and Yams to the package graph of every package that used it.
+  [swift-dead-code-plugin](https://github.com/ivan-magda/swift-dead-code-plugin) runs the release
+  binary instead.
+
 ## 0.1.0 (2026-11-02)
 
 The first public release.

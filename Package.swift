@@ -7,7 +7,6 @@ let package = Package(
   products: [
     .executable(name: "swift-dead-code", targets: ["swift-dead-code"]),
     .library(name: "DeadCodeKit", targets: ["DeadCodeKit"]),
-    .plugin(name: "DeadCodeCommand", targets: ["DeadCodeCommand"]),
   ],
   dependencies: [
     .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.8.0"),
@@ -32,16 +31,6 @@ let package = Package(
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ]
     ),
-    .plugin(
-      name: "DeadCodeCommand",
-      capability: .command(
-        intent: .custom(
-          verb: "dead-code",
-          description: "Find dead code: check, scan, triage, baseline, prune-imports"
-        )
-      ),
-      dependencies: ["swift-dead-code"]
-    ),
     .testTarget(
       name: "DeadCodeKitTests",
       dependencies: ["DeadCodeKit"]
@@ -49,7 +38,7 @@ let package = Package(
   ]
 )
 
-for target in package.targets where target.type != .plugin {
+for target in package.targets {
   target.swiftSettings =
     (target.swiftSettings ?? []) + [.enableUpcomingFeature("MemberImportVisibility")]
 }

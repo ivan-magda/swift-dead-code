@@ -134,7 +134,6 @@ Sources/
     Prune/                    workspace copy, build loop, strict check, patch
     Support/                  process runner, git, paths, file lock, output
   swift-dead-code/            ArgumentParser commands, exit codes
-Plugins/DeadCodeCommand/      SwiftPM command plugin: `swift package dead-code ...`
 Tests/DeadCodeKitTests/       Swift Testing, unit and fixture tests
 Tests/Fixtures/               fixture projects (SwiftPM packages, an Xcode project)
 skills/removing-dead-code/    the agent skill

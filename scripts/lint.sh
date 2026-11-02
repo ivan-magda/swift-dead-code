@@ -34,7 +34,7 @@ files=()
 while IFS= read -r -d '' file; do
   [[ -f "$file" ]] && files+=("$file")
 done < <(git ls-files -z --cached --others --exclude-standard -- \
-  'Sources/*.swift' 'Tests/*.swift' 'Plugins/*.swift' Package.swift ':!Tests/Fixtures/**')
+  'Sources/*.swift' 'Tests/*.swift' Package.swift ':!Tests/Fixtures/**')
 [[ ${#files[@]} -gt 0 ]] || fail 'no Swift files selected'
 
 if [[ "$mode" == fix ]]; then
