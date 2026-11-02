@@ -120,7 +120,13 @@ private extension WorkingCopy {
     var pending = model.localPackageDependencies
     var outside: [String] = []
     let adapter = SwiftPackageAdapter(runner: runner)
-    while let path = pending.popLast() {
+    let root = TextFiles.realPath(model.root)
+    while let next = pending.popLast() {
+      // A path may leave the root and come back into it: `../App/Core` is `Core` in App.
+      let path = TextFiles.relativePath(
+        of: "/" + TextFiles.normalize(root + "/" + next),
+        from: root
+      )
       let directory = model.root.appendingPathComponent(path).standardizedFileURL
       guard seen.insert(path).inserted,
         FileManager.default.fileExists(

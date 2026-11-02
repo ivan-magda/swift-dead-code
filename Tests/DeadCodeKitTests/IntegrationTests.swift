@@ -268,7 +268,11 @@ struct IntegrationTests {
       progress.contains("prune: kept Sources/Lib/Twin.swift:1 (import Helper): the file borrows it")
     )
   }
+}
 
+// MARK: - Local Packages Outside the Project
+
+extension IntegrationTests {
   @Test(.enabled(if: Tools.hasPeriphery), .timeLimit(.minutes(10)))
   func scanBuildsAProjectThatDependsOnALocalPackageBesideIt() throws {
     // given
@@ -325,47 +329,82 @@ struct IntegrationTests {
     #expect(printed.contains("Sources/Lib/Unneeded.swift:1: import Shared"))
   }
 
+  @Test(.enabled(if: Tools.hasPeriphery), .timeLimit(.minutes(10)))
+  func scanCountsTheCallsALocalPackageBesideTheProjectMakes() throws {
+    // given: Lib uses Client, a package beside the project, which calls Core, a package inside
+    // the project; a test reaches Core's function only through Lib and Client.
+    let project = try FixtureProject.copy("ScanPackage")
+    defer {
+      project.remove()
+    }
+    try FixtureProject.writePackage(
+      at: project.root.appendingPathComponent("Packages/Core"),
+      source:
+        "public func onlyClientUses() -> Int {\n  1\n}\n\nfunc unusedInCore() -> Int {\n  2\n}\n"
+    )
+    try FixtureProject.writePackage(
+      at: project.root.deletingLastPathComponent().appendingPathComponent("Client"),
+      source: "import Core\n\npublic let clientValue = onlyClientUses()\n",
+      dependencies: ["../ScanPackage/Packages/Core"],
+      products: ["Core"]
+    )
+    try Self.dependOnPackageBeside(project, named: "Client")
+    try project.write(
+      "import Client\n\npublic let fromClient = clientValue\n",
+      to: "Sources/Lib/Sharing.swift"
+    )
+    let tests = try #require(project.read("Tests/LibTests/LibTests.swift"))
+    try project.write(
+      tests + "\n@Test func readsTheClient() {\n  #expect(fromClient == 1)\n}\n",
+      to: "Tests/LibTests/LibTests.swift"
+    )
+    _ = try project.git(["add", "--all"])
+    let configuration = Configuration()
+
+    // when
+    try ScanRunner(
+      model: try project.load(configuration),
+      configuration: configuration,
+      lockName: Self.lockName
+    )
+    .run(output: project.scratch, skipBuild: false) { _ in }
+
+    // then: Core is the project's code, though Client reaches it from outside.
+    let all = try PeripheryFinding.read(project.scratch.appendingPathComponent("all.json"))
+    #expect(all.contains { $0.name == "unusedInCore()" })
+  }
+
   /// Puts Shared, a package of its own, beside the project, and makes Lib use it through
   /// `.package(path: "../Shared")` in `Sources/Lib/Sharing.swift`.
   static func addSharedPackageBeside(_ project: FixtureProject) throws {
-    let shared = project.root.deletingLastPathComponent().appendingPathComponent("Shared")
-    try TextFiles.write(
-      """
-      // swift-tools-version: 6.0
-      import PackageDescription
-
-      let package = Package(
-        name: "Shared",
-        products: [.library(name: "Shared", targets: ["Shared"])],
-        targets: [.target(name: "Shared")]
-      )
-
-      """,
-      to: shared.appendingPathComponent("Package.swift")
+    try FixtureProject.writePackage(
+      at: project.root.deletingLastPathComponent().appendingPathComponent("Shared"),
+      source: "public let sharedValue = 1\n\npublic func unusedShared() -> Int {\n  2\n}\n"
     )
-    try TextFiles.write(
-      "public let sharedValue = 1\n\npublic func unusedShared() -> Int {\n  2\n}\n",
-      to: shared.appendingPathComponent("Sources/Shared/Shared.swift")
-    )
-    let manifest = try #require(project.read("Package.swift"))
-    try project.write(
-      manifest
-        .replacingOccurrences(
-          of: "  targets: [",
-          with: #"  dependencies: [.package(path: "../Shared")],"# + "\n  targets: ["
-        )
-        .replacingOccurrences(
-          of: #".target(name: "Lib", dependencies: ["Helper"]),"#,
-          with: #".target(name: "Lib", dependencies: ["Helper", "#
-            + #".product(name: "Shared", package: "Shared")]),"#
-        ),
-      to: "Package.swift"
-    )
+    try dependOnPackageBeside(project, named: "Shared")
     try project.write(
       "import Shared\n\npublic let fromShared = sharedValue\n",
       to: "Sources/Lib/Sharing.swift"
     )
     _ = try project.git(["add", "--all"])
+  }
+
+  /// Makes Lib use the library `name` of the package `../<name>`.
+  static func dependOnPackageBeside(_ project: FixtureProject, named name: String) throws {
+    let manifest = try #require(project.read("Package.swift"))
+    try project.write(
+      manifest
+        .replacingOccurrences(
+          of: "  targets: [",
+          with: #"  dependencies: [.package(path: "../\#(name)")],"# + "\n  targets: ["
+        )
+        .replacingOccurrences(
+          of: #".target(name: "Lib", dependencies: ["Helper"]),"#,
+          with: #".target(name: "Lib", dependencies: ["Helper", "#
+            + #".product(name: "\#(name)", package: "\#(name)")]),"#
+        ),
+      to: "Package.swift"
+    )
   }
 }
 

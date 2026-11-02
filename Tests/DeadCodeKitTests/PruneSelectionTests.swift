@@ -131,7 +131,10 @@ struct PruneSelectionTests {
       try? FileManager.default.removeItem(at: directory)
     }
     for (path, dependencies) in packages {
-      try Self.writePackage(dependencies: dependencies, at: directory.appendingPathComponent(path))
+      try FixtureProject.writePackage(
+        at: directory.appendingPathComponent(path),
+        dependencies: dependencies
+      )
     }
     let root = directory.appendingPathComponent(project)
     _ = try ProcessRunner().output(of: Command("git", ["init", "--quiet"], in: root))
@@ -163,7 +166,7 @@ struct PruneSelectionTests {
       project.remove()
     }
     let shared = project.root.deletingLastPathComponent().appendingPathComponent("Shared")
-    try Self.writePackage(dependencies: [], at: shared)
+    try FixtureProject.writePackage(at: shared)
     let spec = try #require(project.read("project.yml"))
     try project.write(
       spec.replacingOccurrences(
@@ -184,30 +187,6 @@ struct PruneSelectionTests {
     #expect(copied.path.hasPrefix(work.path + "/"))
     #expect(
       FileManager.default.fileExists(atPath: copied.appendingPathComponent("Package.swift").path)
-    )
-  }
-
-  /// Writes a package with one library target; `dependencies` are `.package(path:)` paths.
-  static func writePackage(dependencies: [String], at directory: URL) throws {
-    let name = directory.lastPathComponent
-    let packages = dependencies.map { #".package(path: "\#($0)")"# }.joined(separator: ", ")
-    try TextFiles.write(
-      """
-      // swift-tools-version: 6.0
-      import PackageDescription
-
-      let package = Package(
-        name: "\(name)",
-        dependencies: [\(packages)],
-        targets: [.target(name: "\(name)")]
-      )
-
-      """,
-      to: directory.appendingPathComponent("Package.swift")
-    )
-    try TextFiles.write(
-      "public let value = 1\n",
-      to: directory.appendingPathComponent("Sources/\(name)/\(name).swift")
     )
   }
 

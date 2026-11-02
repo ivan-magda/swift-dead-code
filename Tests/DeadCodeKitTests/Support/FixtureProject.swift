@@ -64,6 +64,40 @@ struct FixtureProject {
   func remove() {
     try? FileManager.default.removeItem(at: root.deletingLastPathComponent())
   }
+
+  /// Writes a package at `directory` with one library, named after the directory, whose
+  /// target has `source`. `dependencies` are `.package(path:)` paths; the target uses the
+  /// library `products` name, each from the package of the same name.
+  static func writePackage(
+    at directory: URL,
+    source: String = "public let value = 1\n",
+    dependencies: [String] = [],
+    products: [String] = []
+  ) throws {
+    let name = directory.lastPathComponent
+    let packages = dependencies.map { #".package(path: "\#($0)")"# }.joined(separator: ", ")
+    let uses = products.map { #".product(name: "\#($0)", package: "\#($0)")"# }
+      .joined(separator: ", ")
+    try TextFiles.write(
+      """
+      // swift-tools-version: 6.0
+      import PackageDescription
+
+      let package = Package(
+        name: "\(name)",
+        products: [.library(name: "\(name)", targets: ["\(name)"])],
+        dependencies: [\(packages)],
+        targets: [.target(name: "\(name)", dependencies: [\(uses)])]
+      )
+
+      """,
+      to: directory.appendingPathComponent("Package.swift")
+    )
+    try TextFiles.write(
+      source,
+      to: directory.appendingPathComponent("Sources/\(name)/\(name).swift")
+    )
+  }
 }
 
 /// External tools some tests need.
