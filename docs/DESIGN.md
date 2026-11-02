@@ -432,8 +432,8 @@ unchanged after each read-only command.
   and testing, and the researcher's report;
 - `summary.json`: counts per subcommand.
 
-Projects run in `git clone --local` copies under `../swift-dead-code-work/`, never in the
-original checkouts; nothing is committed or pushed there. A deletion counts as verified only
+Projects run in `git clone --local` copies in a scratch directory, never in the original
+checkouts; nothing is committed or pushed there. A deletion counts as verified only
 after the clone builds and its tests pass with the deletion applied and a fresh read-only
 researcher found no use. A candidate that does not build in 30 minutes is struck out with the
 reason.
