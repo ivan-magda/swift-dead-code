@@ -2,7 +2,7 @@
 
 Notable changes to swift-dead-code. Versions follow [Semantic Versioning](https://semver.org).
 
-## Unreleased
+## 0.1.3 (2026-11-03)
 
 - `baseline` fails, and `baseline --write` refuses to write, when the scans report no
   product-code finding but the baseline lists some. A scan that indexed nothing used to pass the
