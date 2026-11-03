@@ -134,7 +134,9 @@ swift-dead-code prune-imports --work .build/dead-code/prune --all --modules deps
 Review `.build/dead-code/scan/report.md` for unused declarations and code that tests alone
 use. The `baseline` command fails on product-code findings missing from your recorded
 backlog. After reviewing the findings you intend to keep, use `baseline --write` to replace
-the baseline with the current product-code findings.
+the baseline with the current product-code findings. Both fail when the scans report no
+product-code finding but the baseline lists some, since such a scan most likely indexed
+nothing; to clear a backlog you really emptied, delete the baseline file.
 
 The import pruner writes `.build/dead-code/prune/prune.patch`. Review the patch before
 applying it. Add `--strict` to make removable imports fail CI. The

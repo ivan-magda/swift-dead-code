@@ -155,7 +155,9 @@ re-document anything whose remaining use changed.
    the owning target's tests.
 6. `git grep` each removed name in docs, scripts, CI configuration and agent instructions.
 7. `scan` again: a deletion exposes the next layer (a gate only its reader used). Then
-   `baseline --write` on the new scans; its diff must only remove entries.
+   `baseline --write` on the new scans; its diff must only remove entries. If `baseline`
+   says the scans report no product-code finding, the scan is broken: find out why from its
+   `.err` logs, and never delete the baseline to get past it.
 
 ## 6. Verify and publish
 
