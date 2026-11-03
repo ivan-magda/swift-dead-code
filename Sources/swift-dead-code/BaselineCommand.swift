@@ -9,9 +9,11 @@ struct BaselineCommand: ParsableCommand {
     discussion: """
       The baseline (periphery.baseline in .deadcode.yml) lists known findings by USR, which \
       stays the same when code moves. Findings in test code are listed but never fail. Entries \
-      no scan reports any more are named; they do not fail. --write replaces the baseline with \
-      the product-code findings: add one only for an intentional seam, contract or backlog \
-      item you decided to keep, and delete dead code instead.
+      no scan reports any more are named; they do not fail. Scans with no product-code finding \
+      at all fail against a non-empty baseline, and --write refuses them: such a scan most \
+      likely indexed nothing. --write replaces the baseline with the product-code findings: add \
+      one only for an intentional seam, contract or backlog item you decided to keep, and \
+      delete dead code instead.
       """
   )
 

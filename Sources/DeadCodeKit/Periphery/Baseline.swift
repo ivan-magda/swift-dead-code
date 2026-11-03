@@ -70,6 +70,7 @@ public struct Baseline: Sendable {
   public func check(_ findings: [PeripheryFinding]) throws -> Outcome {
     let (product, tests) = partition(findings)
     let known = try recordedIDs()
+    try requireProductFindings(product, recorded: known)
     let new = product.filter { finding in
       known.isDisjoint(with: finding.ids)
     }
@@ -97,8 +98,25 @@ public struct Baseline: Sendable {
 
   /// Rewrites the baseline with the product-code findings.
   public func write(_ findings: [PeripheryFinding]) throws -> Int {
+    let product = partition(findings).product
+    try requireProductFindings(product, recorded: try recordedIDs())
     try TextFiles.write(text(for: findings), to: url)
-    return partition(findings).product.count
+    return product.count
+  }
+
+  /// Scans with no product-code finding against a recorded backlog most likely indexed
+  /// nothing, so neither checking nor writing may pass them off as a cleared backlog.
+  func requireProductFindings(_ product: [PeripheryFinding], recorded: Set<String>) throws {
+    guard product.isEmpty, !recorded.isEmpty else {
+      return
+    }
+    throw DeadCodeError.failure(
+      """
+      the scans report no finding in product code, but \(configuration.periphery.baseline) \
+      lists \(recorded.count): the scan most likely indexed nothing. Check its .err logs; \
+      if the backlog really is gone, delete \(configuration.periphery.baseline).
+      """
+    )
   }
 
   /// The USRs the baseline lists; each entry's first word is one.

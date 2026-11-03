@@ -2,6 +2,12 @@
 
 Notable changes to swift-dead-code. Versions follow [Semantic Versioning](https://semver.org).
 
+## Unreleased
+
+- `baseline` fails, and `baseline --write` refuses to write, when the scans report no
+  product-code finding but the baseline lists some. A scan that indexed nothing used to pass the
+  gate with every entry reported as stale, and `--write` emptied the baseline.
+
 ## 0.1.2 (2026-11-02)
 
 - `scan` and `prune-imports` build a project that depends on a local package outside its root,

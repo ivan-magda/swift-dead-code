@@ -385,7 +385,10 @@ enclosing type's conformances, signature-fixed parameter, test seam (product cod
 `swift-dead-code baseline [--write] SCAN.json...`: the swift-claw gate with the baseline
 path from configuration and test code from the project model. Fails on product-code findings
 whose USRs the baseline lacks; lists test-code findings and stale entries without failing.
-`--write` rewrites the baseline with the product findings, sorted, with the same header.
+`--write` rewrites the baseline with the product findings, sorted, with the same header. Scans
+with no product-code finding against a non-empty baseline fail both modes: a scan that indexed
+nothing would otherwise pass the gate and clear the backlog. A backlog that is really gone is
+cleared by deleting the file.
 
 ### 7.5 `prune-imports`
 
